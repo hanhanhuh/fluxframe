@@ -103,7 +103,6 @@ class ImageMatcher:
             return self._compute_canny_features(img)
         if self.feature_method == "spatial_pyramid":
             return self._compute_spatial_pyramid_features(img)
-        # self.feature_method == "hog"
         return self._compute_hog_features(img)
 
     def _compute_canny_features(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:

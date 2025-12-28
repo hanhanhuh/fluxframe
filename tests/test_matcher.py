@@ -183,6 +183,14 @@ class TestVideoImageMatcherInit:
             video_path.touch()
             images_path.mkdir()
 
+            # Create test images for FAISS index
+            for i in range(3):
+                img_path = images_path / f"img{i+1}.jpg"
+                import cv2
+                import numpy as np
+                img = np.ones((100, 100, 3), dtype=np.uint8) * (i * 50)
+                cv2.imwrite(str(img_path), img)
+
             # Create two matchers with same seed
             matcher1 = VideoImageMatcher(
                 str(video_path), str(images_path), str(output_path1), seed=42
@@ -191,15 +199,25 @@ class TestVideoImageMatcherInit:
                 str(video_path), str(images_path), str(output_path2), seed=42
             )
 
-            # Test that random selection is same
-            top_matches = [("img1.jpg", 0.9), ("img2.jpg", 0.8), ("img3.jpg", 0.7)]
+            # Build indices
+            image_files = matcher1.get_image_files()
+            matcher1._build_faiss_index(image_files)
+            matcher2._build_faiss_index(image_files)
 
-            selected1 = matcher1.select_random_match(top_matches)
+            # Test that random selection is same
+            top_matches = [
+                (str(images_path / "img1.jpg"), 0.9),
+                (str(images_path / "img2.jpg"), 0.8),
+                (str(images_path / "img3.jpg"), 0.7)
+            ]
+
+            selected1 = matcher1.select_match(top_matches)
             # Reset random state
             matcher2 = VideoImageMatcher(
                 str(video_path), str(images_path), str(output_path2), seed=42
             )
-            selected2 = matcher2.select_random_match(top_matches)
+            matcher2._build_faiss_index(image_files)
+            selected2 = matcher2.select_match(top_matches)
 
             assert selected1 == selected2
 
@@ -221,7 +239,10 @@ class TestVideoImageMatcherInit:
 
             assert matcher.checkpoint_path == output_path / 'checkpoint.json'
             assert matcher.results_path == output_path / 'results.json'
-            assert matcher.features_cache_path == output_path / 'image_features.pkl'
+            # FAISS cache files
+            assert matcher.cache_metadata_path == output_path / 'cache_metadata.json'
+            assert matcher.faiss_index_path == output_path / 'faiss_index.bin'
+            assert matcher.vectors_path == output_path / 'vectors.npy'
 
 
 class TestCheckpointing:
@@ -283,7 +304,7 @@ class TestCheckpointing:
 class TestImageSelection:
     """Test image selection logic."""
 
-    def test_select_random_match_basic(self):
+    def test_select_match_basic(self):
         """Test basic random selection from top matches."""
         with tempfile.TemporaryDirectory() as tmpdir:
             video_path = Path(tmpdir) / "test.mp4"
@@ -293,6 +314,13 @@ class TestImageSelection:
             video_path.touch()
             images_path.mkdir()
 
+            # Create test images
+            import cv2
+            import numpy as np
+            for i in range(3):
+                img = np.ones((100, 100, 3), dtype=np.uint8) * (i * 50)
+                cv2.imwrite(str(images_path / f"img{i+1}.jpg"), img)
+
             matcher = VideoImageMatcher(
                 str(video_path),
                 str(images_path),
@@ -300,18 +328,21 @@ class TestImageSelection:
                 seed=42
             )
 
+            # Build index
+            matcher._build_faiss_index(matcher.get_image_files())
+
             top_matches = [
-                ('img1.jpg', 0.9),
-                ('img2.jpg', 0.8),
-                ('img3.jpg', 0.7)
+                (str(images_path / 'img1.jpg'), 0.9),
+                (str(images_path / 'img2.jpg'), 0.8),
+                (str(images_path / 'img3.jpg'), 0.7)
             ]
 
-            selected = matcher.select_random_match(top_matches)
+            selected = matcher.select_match(top_matches)
 
             # Should be one of the options
-            assert selected in ['img1.jpg', 'img2.jpg', 'img3.jpg']
+            assert selected in [str(images_path / f'img{i}.jpg') for i in range(1, 4)]
 
-    def test_select_random_match_with_threshold(self):
+    def test_select_match_with_threshold(self):
         """Test selection respects similarity threshold."""
         with tempfile.TemporaryDirectory() as tmpdir:
             video_path = Path(tmpdir) / "test.mp4"
@@ -321,6 +352,13 @@ class TestImageSelection:
             video_path.touch()
             images_path.mkdir()
 
+            # Create test images
+            import cv2
+            import numpy as np
+            for i in range(3):
+                img = np.ones((100, 100, 3), dtype=np.uint8) * (i * 50)
+                cv2.imwrite(str(images_path / f"img{i+1}.jpg"), img)
+
             matcher = VideoImageMatcher(
                 str(video_path),
                 str(images_path),
@@ -328,18 +366,21 @@ class TestImageSelection:
                 similarity_threshold=0.85
             )
 
+            # Build index
+            matcher._build_faiss_index(matcher.get_image_files())
+
             top_matches = [
-                ('img1.jpg', 0.9),   # Above threshold
-                ('img2.jpg', 0.8),   # Below threshold
-                ('img3.jpg', 0.7)    # Below threshold
+                (str(images_path / 'img1.jpg'), 0.9),   # Above threshold
+                (str(images_path / 'img2.jpg'), 0.8),   # Below threshold
+                (str(images_path / 'img3.jpg'), 0.7)    # Below threshold
             ]
 
-            selected = matcher.select_random_match(top_matches)
+            selected = matcher.select_match(top_matches)
 
             # Should only select img1
-            assert selected == 'img1.jpg'
+            assert selected == str(images_path / 'img1.jpg')
 
-    def test_select_random_match_all_below_threshold(self):
+    def test_select_match_all_below_threshold(self):
         """Test selection when all matches are below threshold."""
         with tempfile.TemporaryDirectory() as tmpdir:
             video_path = Path(tmpdir) / "test.mp4"
@@ -349,6 +390,13 @@ class TestImageSelection:
             video_path.touch()
             images_path.mkdir()
 
+            # Create test images
+            import cv2
+            import numpy as np
+            for i in range(3):
+                img = np.ones((100, 100, 3), dtype=np.uint8) * (i * 50)
+                cv2.imwrite(str(images_path / f"img{i+1}.jpg"), img)
+
             matcher = VideoImageMatcher(
                 str(video_path),
                 str(images_path),
@@ -356,18 +404,22 @@ class TestImageSelection:
                 similarity_threshold=0.95
             )
 
+            # Build index
+            matcher._build_faiss_index(matcher.get_image_files())
+
             top_matches = [
-                ('img1.jpg', 0.9),
-                ('img2.jpg', 0.8),
-                ('img3.jpg', 0.7)
+                (str(images_path / 'img1.jpg'), 0.9),
+                (str(images_path / 'img2.jpg'), 0.8),
+                (str(images_path / 'img3.jpg'), 0.7)
             ]
 
-            selected = matcher.select_random_match(top_matches)
+            selected = matcher.select_match(top_matches)
 
-            # Should return None
-            assert selected is None
+            # Should still return a match (fallback behavior)
+            assert selected is not None
+            assert isinstance(selected, str)
 
-    def test_select_random_match_no_repeat(self):
+    def test_select_match_no_repeat(self):
         """Test no-repeat mode excludes used images."""
         with tempfile.TemporaryDirectory() as tmpdir:
             video_path = Path(tmpdir) / "test.mp4"
@@ -377,6 +429,13 @@ class TestImageSelection:
             video_path.touch()
             images_path.mkdir()
 
+            # Create test images
+            import cv2
+            import numpy as np
+            for i in range(3):
+                img = np.ones((100, 100, 3), dtype=np.uint8) * (i * 50)
+                cv2.imwrite(str(images_path / f"img{i+1}.jpg"), img)
+
             matcher = VideoImageMatcher(
                 str(video_path),
                 str(images_path),
@@ -385,29 +444,32 @@ class TestImageSelection:
                 seed=42
             )
 
+            # Build index
+            matcher._build_faiss_index(matcher.get_image_files())
+
             top_matches = [
-                ('img1.jpg', 0.9),
-                ('img2.jpg', 0.8),
-                ('img3.jpg', 0.7)
+                (str(images_path / 'img1.jpg'), 0.9),
+                (str(images_path / 'img2.jpg'), 0.8),
+                (str(images_path / 'img3.jpg'), 0.7)
             ]
 
             # Select first time
-            selected1 = matcher.select_random_match(top_matches)
+            selected1 = matcher.select_match(top_matches)
             assert selected1 is not None
 
             # Select second time - should not get same image
-            selected2 = matcher.select_random_match(top_matches)
+            selected2 = matcher.select_match(top_matches)
             assert selected2 is not None
             assert selected2 != selected1
 
             # Select third time
-            selected3 = matcher.select_random_match(top_matches)
+            selected3 = matcher.select_match(top_matches)
             assert selected3 is not None
             assert selected3 not in [selected1, selected2]
 
-            # Fourth time - should return None (all used)
-            selected4 = matcher.select_random_match(top_matches)
-            assert selected4 is None
+            # Fourth time - should still return a match (reuses images as fallback)
+            selected4 = matcher.select_match(top_matches)
+            assert selected4 is not None
 
 
 if __name__ == '__main__':

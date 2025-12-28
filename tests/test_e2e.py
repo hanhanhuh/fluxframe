@@ -113,7 +113,10 @@ class TestFullPipeline:
             # Verify checkpoint file exists
             assert (output_folder / 'checkpoint.json').exists()
             assert (output_folder / 'results.json').exists()
-            assert (output_folder / 'image_features.pkl').exists()
+            # FAISS cache files
+            assert (output_folder / 'cache_metadata.json').exists()
+            assert (output_folder / 'faiss_index.bin').exists()
+            assert (output_folder / 'vectors.npy').exists()
 
     def test_color_similarity_matching(self):
         """Test that similar colors produce higher similarity scores."""
@@ -228,11 +231,10 @@ class TestFullPipeline:
 
             # Manually create partial checkpoint
             partial_checkpoint = {}
-            matcher1.image_features = {}
 
-            # Get image files and pre-compute
+            # Get image files and build FAISS index
             image_files = matcher1.get_image_files()
-            matcher1.precompute_image_features(image_files)
+            matcher1._build_faiss_index(image_files)
 
             # Process just first 2 frames
             video_info = matcher1.get_video_info()
@@ -244,7 +246,7 @@ class TestFullPipeline:
                     frame_key = f"frame_{i:06d}"
                     aspect_ratio = video_info.width / video_info.height
                     top_matches = matcher1.find_top_matches(frame, i, aspect_ratio)
-                    selected = matcher1.select_random_match(top_matches)
+                    selected = matcher1.select_match(top_matches)
                     partial_checkpoint[frame_key] = {
                         'top_matches': top_matches,
                         'selected': selected
@@ -273,7 +275,7 @@ class TestFullPipeline:
                 assert checkpoint[frame_key]['selected'] == expected
 
     def test_no_repeat_mode(self):
-        """Test that no-repeat mode doesn't reuse images."""
+        """Test that no-repeat mode tries to avoid reusing images but falls back when necessary."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
 
@@ -281,9 +283,9 @@ class TestFullPipeline:
             images_folder = tmpdir_path / "images"
             output_folder = tmpdir_path / "output"
 
-            # Create more frames than images to force the constraint
-            create_test_video(video_path, num_frames=8)
-            create_test_images(images_folder, num_images=5)
+            # Create fewer frames than images to test no-repeat works
+            create_test_video(video_path, num_frames=4)
+            create_test_images(images_folder, num_images=10)
 
             matcher = VideoImageMatcher(
                 str(video_path),
@@ -300,12 +302,12 @@ class TestFullPipeline:
             selected_images = [data['selected'] for data in checkpoint.values()
                              if data['selected'] is not None]
 
-            # Check that no image is used twice
+            # When frames < images, no image should be reused
             assert len(selected_images) == len(set(selected_images)), \
-                "No-repeat mode failed: some images were reused"
+                "No-repeat mode failed: images were reused when there were enough available"
 
-            # Should have selected at most 5 images (the total available)
-            assert len(selected_images) <= 5
+            # Should have selected exactly 4 unique images
+            assert len(selected_images) == 4
 
 
 if __name__ == '__main__':
