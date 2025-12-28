@@ -189,113 +189,6 @@ class TestFAISSCaching:
             assert matcher2.vectors is not None
 
 
-class TestAdaptiveSearch:
-    """Test adaptive search depth mechanism."""
-
-    def test_search_depth_initialization(self):
-        """Test that search depth is initialized correctly."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            video_path = Path(tmpdir) / "test.mp4"
-            images_path = Path(tmpdir) / "images"
-            output_path = Path(tmpdir) / "output"
-
-            video_path.touch()
-            images_path.mkdir()
-
-            matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                top_n=10
-            )
-
-            assert matcher.current_search_k == 10
-            assert matcher.max_search_k == 50  # min(10 * 5, 100)
-            assert matcher.consecutive_failures == 0
-            assert matcher.consecutive_successes == 0
-
-    def test_search_depth_expansion_on_failure(self):
-        """Test that search depth expands on failures."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            video_path = Path(tmpdir) / "test.mp4"
-            images_path = Path(tmpdir) / "images"
-            output_path = Path(tmpdir) / "output"
-
-            video_path.touch()
-            images_path.mkdir()
-
-            matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                top_n=10
-            )
-
-            initial_k = matcher.current_search_k
-
-            # Trigger failure
-            matcher._adjust_search_depth(success=False)
-
-            # Should increase by 50%
-            assert matcher.current_search_k > initial_k
-            assert matcher.consecutive_failures == 1
-            assert matcher.consecutive_successes == 0
-
-    def test_search_depth_reduction_on_success(self):
-        """Test that search depth reduces on success streaks."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            video_path = Path(tmpdir) / "test.mp4"
-            images_path = Path(tmpdir) / "images"
-            output_path = Path(tmpdir) / "output"
-
-            video_path.touch()
-            images_path.mkdir()
-
-            matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                top_n=10
-            )
-
-            # Artificially increase search depth
-            matcher.current_search_k = 30
-
-            # Need 3 successes to trigger reduction
-            matcher._adjust_search_depth(success=True)
-            assert matcher.current_search_k == 30  # Not yet
-
-            matcher._adjust_search_depth(success=True)
-            assert matcher.current_search_k == 30  # Not yet
-
-            matcher._adjust_search_depth(success=True)
-            assert matcher.current_search_k < 30  # Should reduce now
-
-    def test_search_depth_caps_at_max(self):
-        """Test that search depth doesn't exceed max."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            video_path = Path(tmpdir) / "test.mp4"
-            images_path = Path(tmpdir) / "images"
-            output_path = Path(tmpdir) / "output"
-
-            video_path.touch()
-            images_path.mkdir()
-
-            matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                top_n=10
-            )
-
-            # Trigger many failures
-            for _ in range(20):
-                matcher._adjust_search_depth(success=False)
-
-            # Should cap at max_search_k
-            assert matcher.current_search_k <= matcher.max_search_k
-
-
 class TestFrameRateControl:
     """Test frame rate control and skip interval."""
 
@@ -429,8 +322,8 @@ class TestIntelligentFallback:
             # Should still return a match (best available)
             assert selected in [str(images_path / f"img{i}.jpg") for i in range(1, 4)]
 
-    def test_select_match_no_repeat_filtering(self):
-        """Test that no_repeat filters out used images."""
+    def test_select_match_no_repeat_picks_best(self):
+        """Test that no_repeat mode always picks the best (first) match."""
         with tempfile.TemporaryDirectory() as tmpdir:
             video_path = Path(tmpdir) / "test.mp4"
             images_path = Path(tmpdir) / "images"
@@ -456,17 +349,18 @@ class TestIntelligentFallback:
             matcher._build_faiss_index(matcher.get_image_files())
 
             top_matches = [
-                (str(images_path / "img1.jpg"), 0.9),
+                (str(images_path / "img1.jpg"), 0.9),  # Best match
                 (str(images_path / "img2.jpg"), 0.8),
+                (str(images_path / "img3.jpg"), 0.7),
             ]
 
-            # Select first time
-            selected1 = matcher.select_match(top_matches)
-            assert selected1 in [str(images_path / "img1.jpg"), str(images_path / "img2.jpg")]
+            # With no_repeat, should always pick the best (first) match
+            selected = matcher.select_match(top_matches)
+            assert selected == str(images_path / "img1.jpg")
 
-            # Select second time - should get different image
+            # Calling again with same list still picks best (filtering happens in find_top_matches)
             selected2 = matcher.select_match(top_matches)
-            assert selected2 != selected1
+            assert selected2 == str(images_path / "img1.jpg")
 
     def test_select_match_always_returns_valid_path(self):
         """Test that select_match NEVER returns None."""
@@ -498,10 +392,54 @@ class TestIntelligentFallback:
 
             selected = matcher.select_match(top_matches)
 
-            # Should still return a valid path (from dataset fallback)
-            assert selected is not None
-            assert isinstance(selected, str)
-            assert Path(selected).exists()
+            # With new simplified logic, empty matches returns None
+            assert selected is None
+
+    def test_no_repeat_guarantees_zero_duplicates_across_many_frames(self):
+        """Test that no_repeat guarantees zero duplicates even with small top_n.
+
+        This is a regression test for the bug where images were reused
+        when search depth was too small.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            video_path = Path(tmpdir) / "test.mp4"
+            images_path = Path(tmpdir) / "images"
+            output_path = Path(tmpdir) / "output"
+
+            # Create small video with 10 frames
+            create_test_video(video_path, num_frames=10, fps=30)
+            images_path.mkdir()
+
+            # Create 20 images (2x frames, enough to avoid reuse)
+            for i in range(20):
+                create_test_image(images_path / f"img{i:03d}.jpg")
+
+            matcher = VideoImageMatcher(
+                str(video_path),
+                str(images_path),
+                str(output_path),
+                no_repeat=True,
+                top_n=3,  # Very small top_n to force retries
+                similarity_threshold=0.0,
+                seed=42
+            )
+
+            # Process all frames
+            checkpoint = matcher.process()
+
+            # Extract all selected images
+            selected_images = [
+                data['selected'] for data in checkpoint.values()
+                if data.get('selected') is not None
+            ]
+
+            # Verify zero duplicates
+            assert len(selected_images) == len(set(selected_images)), \
+                f"Found duplicates with no_repeat=True! Used {len(selected_images)} images, " \
+                f"but only {len(set(selected_images))} unique"
+
+            # Verify we processed 10 frames
+            assert len(selected_images) == 10
 
 
 class TestDemoMode:

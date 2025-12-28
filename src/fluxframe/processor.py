@@ -22,11 +22,6 @@ logger = logging.getLogger(__name__)
 class VideoImageMatcher:
     """Main class for matching video frames to image dataset using FAISS."""
 
-    # Adaptive search constants
-    SUCCESS_STREAK_THRESHOLD = 3  # Successes needed before shrinking search depth
-    SEARCH_DEPTH_REDUCTION = 0.8  # Multiply by this to shrink (20% reduction)
-    SEARCH_DEPTH_EXPANSION = 1.5  # Multiply by this to expand (50% increase)
-
     def __init__(  # noqa: PLR0913
         self, video_path: str, image_folder: str, output_dir: str,
         top_n: int = 10, edge_weight: float = 0.33,
@@ -102,11 +97,8 @@ class VideoImageMatcher:
         self.vectors: npt.NDArray[np.float32] | None = None
         self.feature_dim = 768  # Will be adjusted based on actual feature dimensions
 
-        # Adaptive search attributes
-        self.current_search_k = top_n
-        self.consecutive_failures = 0
-        self.consecutive_successes = 0
-        self.max_search_k = min(top_n * 5, 100)  # Cap at 5x initial or 100
+        # Search depth (fixed, no adaptive search)
+        self.search_k = top_n
 
         # Frame rate control
         self.input_fps: float = 0.0
@@ -385,120 +377,64 @@ class VideoImageMatcher:
         # Normalize for cosine similarity
         faiss.normalize_L2(query_vector)
 
-        # Search with adaptive k
-        k = min(self.current_search_k, len(self.image_paths))
-        distances, indices = self.faiss_index.search(query_vector, k)
-
-        # Convert to list of (path, score) tuples
-        # Inner product distances are already similarity scores (higher = better)
-        return [
-            (self.image_paths[idx], float(dist))
-            for dist, idx in zip(distances[0], indices[0], strict=True)
-            if idx >= 0  # Valid index
-        ]
-
-    def _adjust_search_depth(self, success: bool) -> None:
-        """Adjust adaptive search depth based on success/failure.
-
-        Args:
-            success: Whether the last selection was successful.
-        """
-        if success:
-            self.consecutive_successes += 1
-            self.consecutive_failures = 0
-
-            # Shrink toward top_n on success streak
-            if (
-                self.consecutive_successes >= self.SUCCESS_STREAK_THRESHOLD
-                and self.current_search_k > self.top_n
-            ):
-                old_k = self.current_search_k
-                self.current_search_k = max(
-                    self.top_n,
-                    int(self.current_search_k * self.SEARCH_DEPTH_REDUCTION)
-                )
-                logger.debug(f"Search depth reduced: {old_k} -> {self.current_search_k}")
-                self.consecutive_successes = 0
+        # Search FAISS - expand k if filtering needed
+        if self.no_repeat and self.used_images:
+            # Search more to compensate for filtering
+            search_k = min(self.search_k + len(self.used_images), len(self.image_paths))
         else:
-            self.consecutive_failures += 1
-            self.consecutive_successes = 0
+            search_k = self.search_k
 
-            # Expand on failure (every failure)
-            if self.current_search_k < self.max_search_k:
-                old_k = self.current_search_k
-                self.current_search_k = min(
-                    self.max_search_k,
-                    int(self.current_search_k * self.SEARCH_DEPTH_EXPANSION)
-                )
-                logger.debug(f"Search depth increased: {old_k} -> {self.current_search_k}")
+        distances, indices = self.faiss_index.search(query_vector, search_k)
 
-    def select_match(self, top_matches: list[tuple[str, float]]) -> str:  # noqa: PLR0912
-        """Intelligent multi-level fallback selection strategy.
+        # Filter out used images and return top k
+        results = []
+        for dist, idx in zip(distances[0], indices[0], strict=True):
+            if idx < 0:  # Invalid index
+                continue
+            path = self.image_paths[idx]
+            if self.no_repeat and path in self.used_images:
+                continue  # Skip used images
+            results.append((path, float(dist)))
+            if len(results) >= self.search_k:
+                break  # Got enough results
 
-        Priority: threshold-compliant → unused → best available → random from dataset.
+        return results
+
+    def select_match(self, top_matches: list[tuple[str, float]]) -> str | None:
+        """Select best match from candidates.
+
+        With no_repeat mode, always returns the best (highest similarity) match.
+        Without no_repeat, randomly samples from top matches for variety.
 
         Args:
-            top_matches: List of (image_path, similarity_score) tuples.
+            top_matches: List of (image_path, similarity_score) tuples, sorted by score.
 
         Returns:
-            Selected image path (never None).
+            Selected image path, or None if no valid matches found.
         """
-        # Level 1: Try threshold-compliant matches
+        if not top_matches:
+            logger.warning("No matches found in search")
+            return None
+
+        # Filter by threshold if set
         valid_matches = [
             (path, score) for path, score in top_matches
             if score >= self.similarity_threshold
         ]
 
-        if valid_matches:
-            candidates = valid_matches
-        elif top_matches:
-            # Level 2: Use best available from top_matches
-            logger.debug("No matches above threshold, using best available from search")
-            candidates = top_matches
-            self._adjust_search_depth(success=False)
-        else:
-            # Level 3: Fallback to random from entire dataset
-            logger.warning("No matches found, using random selection from dataset")
-            if not self.image_paths:
-                msg = "No images available in dataset"
-                raise ValueError(msg)
+        candidates = valid_matches if valid_matches else top_matches
 
-            if self.no_repeat:
-                unused = [p for p in self.image_paths if p not in self.used_images]
-                if unused:
-                    selected = random.choice(unused)
-                else:
-                    logger.warning("All images used, reusing from dataset")
-                    selected = random.choice(self.image_paths)
-            else:
-                selected = random.choice(self.image_paths)
+        if not candidates:
+            return None
 
-            self.used_images.add(selected)
-            self._adjust_search_depth(success=False)
-            return selected
-
-        # Filter for unused images if no_repeat enabled
+        # Select match based on mode
         if self.no_repeat:
-            unused_candidates = [(p, s) for p, s in candidates if p not in self.used_images]
-
-            if unused_candidates:
-                candidates = unused_candidates
-                self._adjust_search_depth(success=True)
-            else:
-                # Level 4: All candidates used, expand search or reuse
-                logger.debug("All candidates used, expanding search")
-                self._adjust_search_depth(success=False)
-
-                # Reuse best available as last resort
-                candidates = candidates[:1]  # Best match
-        else:
-            self._adjust_search_depth(success=True)
-
-        # Random selection from final candidates
-        selected_path = random.choice(candidates)[0]
-
-        if self.no_repeat:
+            # Always take the best (first) match - already filtered by find_top_matches
+            selected_path = candidates[0][0]
             self.used_images.add(selected_path)
+        else:
+            # Random selection for variety
+            selected_path = random.choice(candidates)[0]
 
         return selected_path
 
@@ -514,8 +450,7 @@ class VideoImageMatcher:
         logger.info(f"Video: {self.video_path}")
         logger.info(f"Image folder: {self.image_folder}")
         logger.info(f"Output directory: {self.output_dir}")
-        logger.info(f"Top N (initial): {self.top_n}")
-        logger.info(f"Max search depth: {self.max_search_k}")
+        logger.info(f"Search depth: {self.search_k}")
         logger.info(f"Similarity threshold: {self.similarity_threshold}")
         logger.info(f"No repeat: {self.no_repeat}")
         logger.info(f"Checkpoint batch size: {self.checkpoint_batch_size}")
@@ -601,11 +536,22 @@ class VideoImageMatcher:
                 if should_process and (
                     frame_key not in checkpoint or checkpoint[frame_key].get("selected") is None
                 ):
-                    # Find top matches
+                    # Find top matches (automatically filters used images if no_repeat)
                     top_matches = self.find_top_matches(frame, frame_num, target_aspect_ratio)
-
-                    # Select match with intelligent fallback
                     selected = self.select_match(top_matches)
+
+                    # Fallback if still None (extremely rare - dataset exhausted)
+                    if selected is None:
+                        logger.warning(
+                            f"Frame {frame_num}: All images exhausted, selecting randomly"
+                        )
+                        unused = [p for p in self.image_paths if p not in self.used_images]
+                        selected = (
+                            random.choice(unused) if unused
+                            else random.choice(self.image_paths)
+                        )
+                        self.used_images.add(selected)
+                        top_matches = [(selected, 0.0)]  # Dummy match
 
                     # Store result
                     frame_result = FrameResult(top_matches=top_matches, selected=selected)

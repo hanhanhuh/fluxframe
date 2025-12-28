@@ -453,23 +453,15 @@ class TestImageSelection:
                 (str(images_path / 'img3.jpg'), 0.7)
             ]
 
-            # Select first time
+            # With no_repeat mode, always picks the best (first) match
+            # Filtering happens in find_top_matches, not in select_match
             selected1 = matcher.select_match(top_matches)
-            assert selected1 is not None
+            assert selected1 == str(images_path / 'img1.jpg')  # Best match
 
-            # Select second time - should not get same image
+            # Calling again with same list picks same best match
+            # (In real usage, find_top_matches would filter this out)
             selected2 = matcher.select_match(top_matches)
-            assert selected2 is not None
-            assert selected2 != selected1
-
-            # Select third time
-            selected3 = matcher.select_match(top_matches)
-            assert selected3 is not None
-            assert selected3 not in [selected1, selected2]
-
-            # Fourth time - should still return a match (reuses images as fallback)
-            selected4 = matcher.select_match(top_matches)
-            assert selected4 is not None
+            assert selected2 == str(images_path / 'img1.jpg')
 
 
 if __name__ == '__main__':

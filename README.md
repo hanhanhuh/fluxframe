@@ -2,31 +2,24 @@
 
 Create temporal video collages by replacing each frame with similar images from large datasets. FluxFrame transforms videos into artistic visual remixes where the original motion and composition remain recognizable, but constructed entirely from different source images.
 
-Perfect for experimental video art, temporal mosaics, and creative visual storytelling. Optimized for CPU performance with feature pre-computation, making it suitable for matching against 0.5M+ images.
+Optimized for CPU performance with FAISS vector search, making it suitable for matching against 500K+ image pools.
 
 ## Features
 
 - **Multiple feature extraction methods**:
-  - **Canny**: Fast edge histogram (default, no spatial info)
-  - **Spatial Pyramid**: 4x4 grid of edge histograms (preserves spatial layout)
-  - **HOG**: Histogram of Oriented Gradients (best motion preservation for temporal mosaics)
-- **Multi-metric similarity**: Combines edge/structure, texture (Sobel gradients), and color (HSV) features
-- **Weighted metrics**: Configurable weights for each similarity component
-- **Parallel processing**: Multiprocessing support for fast similarity computation across CPU cores
-- **Aspect-ratio preserving**: Uses center cropping instead of adding bars
-- **CPU-optimized**: Fast comparison using OpenCV with efficient histogram-based methods
-- **Feature pre-computation**: Computes image features once and caches them for reuse (100x+ speedup for large datasets)
-- **Aspect-ratio independent caching**: Caches features for multiple aspect ratios, works with different videos without recomputation
-- **Memory efficient**: Processes video frame-by-frame without loading all frames into memory
-- **Batched checkpointing**: Saves progress every N frames (configurable) for efficient resume
-- **FPS override**: Optional custom frame rate for output video
-- **Reproducible**: Optional random seed for consistent results
-- **Top-N selection**: Finds top N most similar images and randomly selects one
-- **No-repeat mode**: Optional constraint to use each image only once
-- **Similarity threshold**: Optional minimum similarity for selection
-- **Demo mode**: Test on subset of video/images for quick validation
-- **Dual output**: Generates both video and individual frame images
-- **Type-safe**: Full mypy strict mode compliance with comprehensive type hints
+  - **Canny**: Fast edge histogram (default)
+  - **Spatial Pyramid**: 4x4 grid preserves spatial layout
+  - **HOG**: Histogram of Oriented Gradients for best motion preservation
+- **Multi-metric similarity**: Combines edge, texture (Sobel), and color (HSV) features
+- **FAISS vector search**: Fast exact similarity search with IndexFlatIP
+- **No-repeat mode**: Guarantees zero duplicates - always picks best unused match
+- **Aspect-ratio preserving**: Center cropping, no letterboxing
+- **FAISS caching**: Build index once, reuse across runs
+- **Cache validation**: SHA256 parameter tracking for automatic invalidation
+- **Frame skip control**: Process subset of frames with `--fps-override`
+- **Checkpoint resume**: Save progress, resume after interruption
+- **Demo mode**: Test on video/image subsets before full run
+- **Type-safe**: Full mypy strict mode compliance
 
 ## Installation
 
@@ -42,98 +35,46 @@ Or using pip:
 pip install -e .
 ```
 
-## Package Structure
-
-```
-fluxframe/
-├── src/fluxframe/
-│   ├── __init__.py
-│   ├── cli.py              # Command-line interface
-│   ├── processor.py        # Main processing pipeline
-│   ├── matcher.py          # Image similarity computation
-│   └── models.py           # Pydantic data models
-├── tests/
-│   ├── test_matcher.py     # Unit tests
-│   └── test_e2e.py         # End-to-end tests
-└── pyproject.toml          # Package configuration
-```
-
 ## Usage
 
-Basic usage via command-line:
-
+Basic:
 ```bash
 fluxframe <video_file> <image_folder> <output_dir>
 ```
 
-Or as a Python module:
-
-```bash
-python -m fluxframe.cli <video_file> <image_folder> <output_dir>
-```
-
 ### Examples
 
-**Simple matching with default settings (Canny features):**
+**Default (Canny features):**
 ```bash
-fluxframe input.mp4 /path/to/open-images ./output
+fluxframe input.mp4 /path/to/images ./output
 ```
 
-**Temporal mosaic with motion preservation (HOG features):**
-```bash
-fluxframe input.mp4 /path/to/images ./output \
-  --feature-method hog
-```
-
-**Balanced speed/quality (Spatial Pyramid features):**
+**Best quality (HOG features, no duplicates):**
 ```bash
 fluxframe input.mp4 /path/to/images ./output \
-  --feature-method spatial_pyramid
+  --feature-method hog \
+  --no-repeat
 ```
 
-**Fast processing with parallelization:**
+**Custom FPS (process fewer frames):**
 ```bash
 fluxframe input.mp4 /path/to/images ./output \
-  --feature-method canny --num-workers 16
+  --fps-override 15
 ```
 
-**Custom FPS for output video:**
+**Emphasize color over structure:**
 ```bash
 fluxframe input.mp4 /path/to/images ./output \
-  --fps-override 30
+  --color-weight 0.8 --edge-weight 0.1 --texture-weight 0.1
 ```
 
-**Emphasize edge/structure similarity:**
+**With similarity threshold:**
 ```bash
 fluxframe input.mp4 /path/to/images ./output \
-  --edge-weight 0.6 --texture-weight 0.2 --color-weight 0.2
+  --no-repeat --threshold 0.5
 ```
 
-**Emphasize color similarity:**
-```bash
-fluxframe input.mp4 /path/to/images ./output \
-  --edge-weight 0.1 --texture-weight 0.1 --color-weight 0.8
-```
-
-**Use each image only once with similarity threshold:**
-```bash
-fluxframe input.mp4 /path/to/images ./output \
-  --no-repeat --threshold 0.5 --top-n 20
-```
-
-**High-quality comparison (slower but more accurate):**
-```bash
-fluxframe input.mp4 /path/to/images ./output \
-  --comparison-size 512 --feature-method hog
-```
-
-**Only compute matches (skip video generation):**
-```bash
-fluxframe input.mp4 /path/to/images ./output \
-  --skip-output
-```
-
-**Demo mode (test with small subset):**
+**Demo mode (quick test):**
 ```bash
 fluxframe input.mp4 /path/to/images ./output \
   --demo --demo-seconds 30 --demo-images 500
@@ -143,192 +84,169 @@ fluxframe input.mp4 /path/to/images ./output \
 
 **Required:**
 - `video`: Path to input video file
-- `images`: Path to folder containing images (flat structure, no recursive search)
+- `images`: Path to folder containing images (flat structure)
 - `output`: Output directory
 
 **Optional:**
-- `--feature-method`: Feature extraction method - `canny` (fast), `spatial_pyramid` (balanced), `hog` (best motion) (default: canny)
-- `--top-n`: Number of top similar images to consider (default: 10)
-- `--edge-weight`: Weight for edge/structure similarity 0-1 (default: 0.33)*
-- `--texture-weight`: Weight for texture similarity 0-1 (default: 0.33)*
-- `--color-weight`: Weight for color similarity 0-1 (default: 0.34)*
-- `--threshold`: Minimum similarity threshold for selection 0-1 (default: 0.0)
-- `--no-repeat`: Use each image only once
-- `--comparison-size`: Resize images to this size for comparison (default: 256, larger = slower but more accurate)
-- `--num-workers`: Number of parallel workers (default: auto-detect CPU count)
-- `--fps-override`: Override output video FPS (default: use input video FPS)
-- `--skip-output`: Skip output generation (only compute matches)
-- `--demo`: Enable demo mode (process only subset of video and images)
-- `--demo-seconds`: Number of seconds to process in demo mode (default: 20)
-- `--demo-images`: Number of images to use in demo mode (default: 1000)
-- `--checkpoint-batch`: Save checkpoint every N frames (default: 10)
-- `--seed`: Random seed for reproducibility (default: None)
+- `--feature-method`: `canny` (fast), `spatial_pyramid` (balanced), `hog` (best) (default: canny)
+- `--search-depth`: Number of top matches to find (default: 10)
+- `--edge-weight`: Edge similarity weight 0-1 (default: 0.33)*
+- `--texture-weight`: Texture similarity weight 0-1 (default: 0.33)*
+- `--color-weight`: Color similarity weight 0-1 (default: 0.34)*
+- `--threshold`: Minimum similarity threshold 0-1 (default: 0.0)
+- `--no-repeat`: Use each image only once (zero duplicates guaranteed)
+- `--comparison-size`: Image resize for comparison (default: 256)
+- `--fps-override`: Output FPS by skipping input frames (default: input FPS)
+- `--skip-output`: Only compute matches, skip video generation
+- `--demo`: Process subset for quick testing
+- `--demo-seconds`: Seconds to process in demo (default: 20)
+- `--demo-images`: Images to use in demo (default: 1000)
+- `--checkpoint-batch`: Save progress every N frames (default: 10)
+- `--seed`: Random seed for reproducibility
 
-*Note: Weights are automatically normalized to sum to 1.0, so you can use any values (e.g., `2:1:1` becomes `0.5:0.25:0.25`).
+*Weights are auto-normalized to sum to 1.0
 
-### Feature Methods Comparison
+### Feature Methods
 
-| Method | Speed | Motion Preservation | Feature Size | Best For |
-|--------|-------|---------------------|--------------|----------|
-| `canny` | ⭐⭐⭐⭐⭐ | ❌ Poor | 256 values | Fast processing, static scenes |
-| `spatial_pyramid` | ⭐⭐⭐⭐ | ⭐⭐⭐ Good | 512 values | Balanced speed/quality |
-| `hog` | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ Excellent | ~1296 values | Temporal mosaics, motion preservation |
-
-## Programmatic Usage
-
-You can also use the package programmatically:
-
-```python
-from fluxframe.processor import VideoImageMatcher
-
-# Initialize matcher
-matcher = VideoImageMatcher(
-    video_path="input.mp4",
-    image_folder="/path/to/images",
-    output_dir="./output",
-    top_n=10,
-    edge_weight=0.33,
-    texture_weight=0.33,
-    color_weight=0.34,
-    similarity_threshold=0.5,
-    no_repeat=True,
-    seed=42
-)
-
-# Process video frames
-checkpoint = matcher.process()
-
-# Generate output video
-matcher.generate_output(checkpoint)
-```
+| Method | Speed | Motion | Feature Size |
+|--------|-------|--------|--------------|
+| `canny` | ⭐⭐⭐⭐⭐ | ❌ Poor | 832D |
+| `spatial_pyramid` | ⭐⭐⭐⭐ | ⭐⭐⭐ Good | 1088D |
+| `hog` | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ Excellent | ~1872D |
 
 ## How It Works
 
-### 1. Pre-computation (First Run Only)
-The package pre-computes feature vectors for all images in the dataset:
-- Crops images to common aspect ratios (16:9, 4:3, 1:1, 9:16, 3:4)
-- Computes edge, texture, and color features for each crop
-- Saves to `image_features.pkl` for instant reuse
-- **This happens once** - subsequent runs with different videos reuse the cache
+### 1. FAISS Index Building (First Run)
+- Computes edge, texture, and color features for all images
+- Concatenates weighted features into single vector per image
+- Normalizes with L2 (for cosine similarity via inner product)
+- Builds FAISS IndexFlatIP (exact search)
+- Caches: `faiss_index.bin`, `vectors.npy`, `cache_metadata.json`
+- **Subsequent runs**: Instant reload from cache
 
-### 2. Frame-by-Frame Processing
-Processes video frames one at a time without loading entire video into memory:
-- Reads video metadata (FPS, resolution, total frames)
-- Opens video stream and processes each frame sequentially
-- Releases memory after each frame
+### 2. Frame Processing
+- Reads video metadata (FPS, resolution, frames)
+- Processes frames sequentially (memory efficient)
+- Applies frame skip if `--fps-override` set
+- Checkpoints every N frames for resume
 
-### 3. Similarity Computation
-For each video frame:
+### 3. Similarity Search
+**Feature Extraction:**
+- Edge: Canny/Spatial Pyramid/HOG
+- Texture: Sobel gradient magnitude
+- Color: HSV 3D histogram
+- Concatenate weighted, normalize L2
 
-**Color Similarity:**
-- Converts images to HSV color space
-- Computes 3D color histogram (8x8x8 bins)
-- Uses histogram correlation for comparison
-
-**Edge/Contour Similarity:**
-- Applies Canny edge detection
-- Computes edge histogram
-- Uses histogram correlation for comparison
-
-**Texture Similarity:**
-- Computes Sobel gradients (approximation of Local Binary Patterns)
-- Analyzes gradient magnitude as texture descriptor
-- Uses histogram correlation for comparison
+**FAISS Search:**
+- Query index with search depth k
+- With `--no-repeat`: Expand k to `k + len(used)`, post-filter used images
+- Returns top k unused matches sorted by similarity
 
 **Combined Score:**
 ```
-similarity = edge_weight * edge_sim + texture_weight * texture_sim + color_weight * color_sim
+similarity = edge_weight × edge_sim + texture_weight × texture_sim + color_weight × color_sim
 ```
 
-### 3. Aspect Ratio Handling
-- Images are center-cropped to match video aspect ratio
-- No bars are added (preserves image quality)
-- Comparison is done on resized images for speed
+### 4. Selection Strategy
 
-### 4. Top-N Selection
-- Computes similarity for all images in the folder
-- Selects top N most similar images
-- Filters by similarity threshold (if specified)
-- Randomly picks one from the top matches
-- Optionally excludes already-used images
+**With `--no-repeat` (recommended)**:
+- Always selects **best match** (highest similarity)
+- Post-filtering ensures used images excluded
+- Guarantees **zero duplicates**
+- **Deterministic**: same input = same output
+
+**Without `--no-repeat`**:
+- Randomly samples from top k for variety
+- Images can be reused
+- Non-deterministic
 
 ### 5. Checkpointing
-- Saves results after each frame to `checkpoint.json`
-- Stores top matches and selected image for each frame
-- Can resume processing if interrupted
-- Enables parameter experimentation without recomputing
+- Saves every N frames to `checkpoint.json`
+- Stores top matches and selected image per frame
+- Resume on interruption or rerun with different output settings
 
 ### 6. Output Generation
-- Creates output video with matched images
-- Saves individual frames as images named by frame number
-- Images are cropped and resized to match video dimensions
+- Creates video with matched images
+- Saves individual frames as JPEGs
+- Images cropped/resized to match video dimensions
 
 ## Output Structure
 
 ```
 output_dir/
-├── checkpoint.json           # Processing checkpoint
-├── results.json             # Final results
-├── <video_name>_matched.mp4 # Output video
-└── matched_frames/          # Individual frame images
+├── checkpoint.json           # Resume checkpoint
+├── results.json             # Final mappings
+├── cache_metadata.json      # FAISS cache params
+├── faiss_index.bin          # FAISS index
+├── vectors.npy              # Feature vectors
+├── <video>_matched.mp4      # Output video
+└── matched_frames/          # Individual frames
     ├── frame_000000.jpg
     ├── frame_000001.jpg
     └── ...
 ```
 
+## Performance
+
+**Typical (500K images, 30fps video, CPU)**:
+- Index build: ~2-3 min (first run only)
+- Per-frame search: ~0.3-0.5 sec
+- 5 min video: ~4-7 min total
+- 30 min video: ~25-40 min total
+
+**Scaling**:
+- FAISS search: Very fast even with millions of vectors
+- Post-filtering: Negligible overhead
+- No-repeat: Best match selection, zero duplicates
+- Cache: Instant on subsequent runs
+
+**Tips**:
+- Smaller `--comparison-size` (128/256) = faster
+- Larger `--comparison-size` (512/1024) = more accurate
+- FAISS scales to millions of images
+- Memory: ~4 bytes per dimension per image
+
 ## Development
 
-Run tests:
-
+Tests:
 ```bash
 pytest tests/ -v
 ```
 
-Run linters:
-
+Linting:
 ```bash
 ruff check src/ tests/
-mypy src/video_image_matcher --ignore-missing-imports
+mypy src/
 ```
 
-## Resuming After Errors
+## Resume After Errors
 
-The package automatically saves progress. If interrupted, simply run the same command again - it will resume from the last checkpoint.
-
-To restart with different parameters (e.g., different weights):
-1. Delete `checkpoint.json` in the output directory
+Automatically resumes from `checkpoint.json`. To restart with different parameters:
+1. Delete `checkpoint.json`
 2. Run with new parameters
 
-## Performance Tips
-
-- **Faster processing**: Use smaller `--comparison-size` (e.g., 128 or 256)
-- **Better quality**: Use larger `--comparison-size` (e.g., 512 or 1024)
-- **Large datasets**: The script processes all images for each frame - consider filtering your image dataset first
-- **CPU usage**: OpenCV operations are optimized for CPU and use SIMD instructions when available
+**Note**: FAISS cache auto-invalidates when parameters change (weights, feature method, comparison size, image pool).
 
 ## Technical Details
 
-The package uses CPU-efficient algorithms based on research:
+**Color**: HSV 3D histograms, correlation metric
 
-**Color Comparison:**
-- HSV color histograms with correlation metric (OpenCV)
-- Higher correlation = more similar colors
+**Edges**:
+- Canny: Fast, no spatial info
+- Spatial Pyramid: 4x4 grid preserves layout
+- HOG: Gradient orientation, best for motion
 
-**Edge Detection:**
-- Canny edge detection for robust contour extraction
-- Histogram-based comparison for edge distribution
+**Texture**: Sobel gradient magnitude (fast alternative to LBP)
 
-**Texture Analysis:**
-- Sobel gradient magnitude as texture descriptor
-- Fast alternative to Local Binary Patterns
-
-All comparisons use normalized histograms and correlation metrics for consistent 0-1 similarity scores.
+**Vector Search**:
+- FAISS IndexFlatIP (exact inner product = cosine similarity after L2 norm)
+- Post-filter for no-repeat (simple, fast, exact)
+- No approximation, always best match
 
 ## Sources
 
-Research for this implementation:
-- [Image Comparison Using OpenCV and Python](https://www.pythontutorials.net/blog/compare-similarity-of-images-using-opencv-with-python/)
+- [FAISS Library](https://github.com/facebookresearch/faiss)
+- [FAISS Documentation](https://faiss.ai/index.html)
 - [OpenCV Histogram Comparison](https://docs.opencv.org/3.4/d8/dc8/tutorial_histogram_comparison.html)
-- [Image Hashing with OpenCV](https://github.com/JohannesBuchner/imagehash)
-- [Canny Edge Detection with OpenCV](https://medium.com/@abhisheksriram845/canny-edge-detection-explained-and-compared-with-opencv-in-python-57a161b4bd19)
-- [OpenCV img_hash module](https://docs.opencv.org/3.4/d4/d93/group__img__hash.html)
+- [Canny Edge Detection](https://medium.com/@abhisheksriram845/canny-edge-detection-explained-and-compared-with-opencv-in-python-57a161b4bd19)
+- [Histogram of Oriented Gradients](https://scikit-image.org/docs/stable/auto_examples/features_detection/plot_hog.html)
