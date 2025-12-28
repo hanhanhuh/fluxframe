@@ -112,7 +112,9 @@ fluxframe input.mp4 /path/to/images ./output \
 |--------|-------|--------|--------------|
 | `canny` | ⭐⭐⭐⭐⭐ Fast | ❌ Poor | 832D |
 | `spatial_pyramid` | ⭐⭐⭐⭐ Medium | ⭐⭐⭐ Good | 1088D |
-| `hog` | ⭐⭐⭐ Slower | ⭐⭐⭐⭐⭐ Excellent | 2340D |
+| `hog` | ⭐⭐⭐ Slower | ⭐⭐⭐⭐⭐ Excellent | 1332D* |
+
+*HOG dimensions vary with `--comparison-size` (684D at 128px, 1332D at 256px, 4896D at 512px)
 
 ## How It Works
 
@@ -208,7 +210,8 @@ output_dir/
 - ~4 bytes per dimension per image
 - Canny (832D): 500K images = ~1.6GB
 - Spatial Pyramid (1088D): 500K images = ~2.1GB
-- HOG (2340D): 500K images = ~4.5GB
+- HOG at 256px (1332D): 500K images = ~2.5GB
+- HOG at 512px (4896D): 500K images = ~9.3GB
 
 **Tips**:
 - Smaller `--comparison-size` (128/256) = faster
