@@ -80,6 +80,12 @@ fluxframe input.mp4 /path/to/images ./output \
   --demo --demo-seconds 30 --demo-images 500
 ```
 
+**Save comparison samples:**
+```bash
+fluxframe input.mp4 /path/to/images ./output \
+  --save-samples 20 --sample-interval 10
+```
+
 ### Command-line Arguments
 
 **Required:**
@@ -103,6 +109,8 @@ fluxframe input.mp4 /path/to/images ./output \
 - `--demo-images`: Images to use in demo (default: 1000)
 - `--checkpoint-batch`: Save progress every N frames (default: 10)
 - `--seed`: Random seed for reproducibility
+- `--save-samples`: Number of frame-match comparison samples to save (default: 0)
+- `--sample-interval`: Save every Nth frame as sample (default: 1)
 
 *Weights are auto-normalized to sum to 1.0
 
@@ -182,9 +190,13 @@ output_dir/
 ├── faiss_index.bin          # FAISS index
 ├── vectors.npy              # Feature vectors
 ├── <video>_matched.mp4      # Output video
-└── matched_frames/          # Individual frames
-    ├── frame_000000.jpg
-    ├── frame_000001.jpg
+├── matched_frames/          # Individual frames
+│   ├── frame_000000.jpg
+│   ├── frame_000001.jpg
+│   └── ...
+└── comparison_samples/      # Frame-match comparisons (if --save-samples used)
+    ├── sample_000000.jpg
+    ├── sample_000010.jpg
     └── ...
 ```
 
