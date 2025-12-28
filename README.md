@@ -30,16 +30,16 @@ Perfect for experimental video art, temporal mosaics, and creative visual storyt
 
 ## Installation
 
-Install the package in development mode:
+Using [uv](https://github.com/astral-sh/uv) (recommended):
+
+```bash
+uv pip install -e .
+```
+
+Or using pip:
 
 ```bash
 pip install -e .
-```
-
-Or install dependencies manually:
-
-```bash
-pip install -r requirements.txt
 ```
 
 ## Package Structure
