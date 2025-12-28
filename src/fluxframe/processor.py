@@ -380,6 +380,7 @@ class VideoImageMatcher:
             image_files.extend(self.image_folder.glob(f"*{ext}"))
             image_files.extend(self.image_folder.glob(f"*{ext.upper()}"))
 
+        logger.info(f"Sorting {len(image_files)} image paths...")
         image_files = sorted(image_files)
 
         # Apply demo mode limit
@@ -617,6 +618,7 @@ class VideoImageMatcher:
                     self.used_images.add(data["selected"])
 
         # Get image files
+        logger.info("Scanning image folder...")
         image_files = self.get_image_files()
         logger.info(f"Found {len(image_files)} images in folder")
 
@@ -625,6 +627,7 @@ class VideoImageMatcher:
             raise ValueError(msg)
 
         # Build FAISS index
+        logger.info("Preparing FAISS index...")
         self._build_faiss_index(image_files)
 
         # Calculate target aspect ratio
