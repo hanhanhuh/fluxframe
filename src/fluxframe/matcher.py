@@ -90,6 +90,19 @@ class ImageMatcher:
         start_y = (h - new_h) // 2
         return img[start_y:start_y + new_h, :]
 
+    def _ensure_grayscale(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:
+        """Convert image to grayscale if needed.
+
+        Args:
+            img: Input image (BGR or grayscale).
+
+        Returns:
+            Grayscale image.
+        """
+        if len(img.shape) == _COLOR_CHANNELS:
+            return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        return img
+
     def compute_edge_features(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Compute edge/structure features based on selected method.
 
@@ -114,14 +127,21 @@ class ImageMatcher:
         Returns:
             Normalized edge histogram (256 bins).
         """
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == _COLOR_CHANNELS else img
+        gray = self._ensure_grayscale(img)
 
         # Apply Canny edge detection
         edges = cv2.Canny(gray, 50, 150)
 
-        # Compute histogram of edges
-        hist = cv2.calcHist([edges], [0], None, [256], [0, 256])
-        return cv2.normalize(hist, hist).flatten()
+        # Compute histogram using NumPy (faster for 1D histograms)
+        hist, _ = np.histogram(edges, bins=256, range=(0, 256))
+        hist = hist.astype(np.float32)
+
+        # Normalize
+        hist_sum = hist.sum()
+        if hist_sum > 0:
+            hist = hist / hist_sum
+
+        return hist
 
     def _compute_spatial_pyramid_features(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Compute spatial pyramid of Canny edge histograms.
@@ -135,28 +155,37 @@ class ImageMatcher:
         Returns:
             Concatenated edge histograms from all grid cells (16 cells * 32 bins = 512 values).
         """
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == _COLOR_CHANNELS else img
+        gray = self._ensure_grayscale(img)
 
         h, w = gray.shape[:2]
         grid_size = 4  # 4x4 grid
         cell_h, cell_w = h // grid_size, w // grid_size
+        bins_per_cell = 32
 
-        features: list[npt.NDArray[Any]] = []
+        # Pre-allocate feature array (faster than list append + concatenate)
+        features = np.zeros(grid_size * grid_size * bins_per_cell, dtype=np.float32)
+
         for i in range(grid_size):
             for j in range(grid_size):
-                # Extract cell
+                # Extract cell (using array view, no copy)
                 cell = gray[i * cell_h:(i + 1) * cell_h, j * cell_w:(j + 1) * cell_w]
 
                 # Canny edge detection on cell
                 edges = cv2.Canny(cell, 50, 150)
 
-                # Histogram with fewer bins per cell
-                hist = cv2.calcHist([edges], [0], None, [32], [0, 256])
-                hist = cv2.normalize(hist, hist).flatten()
-                features.append(hist)
+                # Compute histogram using NumPy
+                hist, _ = np.histogram(edges, bins=bins_per_cell, range=(0, 256))
 
-        concatenated: npt.NDArray[Any] = np.concatenate(features)
-        return concatenated.astype(np.float32)
+                # Normalize and store
+                hist_sum = hist.sum()
+                if hist_sum > 0:
+                    hist = hist / hist_sum
+
+                # Store in pre-allocated array
+                cell_idx = i * grid_size + j
+                features[cell_idx * bins_per_cell:(cell_idx + 1) * bins_per_cell] = hist
+
+        return features
 
     def _compute_hog_features(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Compute Histogram of Oriented Gradients features.
@@ -177,7 +206,7 @@ class ImageMatcher:
             )
             raise ImportError(msg)
 
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == _COLOR_CHANNELS else img
+        gray = self._ensure_grayscale(img)
 
         # Fast HOG settings optimized for speed while preserving motion
         features: npt.NDArray[Any] = hog(
@@ -202,20 +231,33 @@ class ImageMatcher:
         Returns:
             Normalized texture histogram (64 bins).
         """
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == _COLOR_CHANNELS else img
+        gray = self._ensure_grayscale(img)
 
-        # Compute gradients for texture
-        sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
-        sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
-        magnitude = np.sqrt(sobelx**2 + sobely**2)
+        # Compute gradients using CV_32F (faster than CV_64F)
+        sobelx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+        sobely = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
 
-        # Normalize and convert to uint8
-        magnitude_uint8 = np.zeros_like(magnitude, dtype=np.uint8)
-        cv2.normalize(magnitude, magnitude_uint8, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+        # Use cv2.magnitude (optimized C++ implementation, faster than np.sqrt)
+        magnitude = cv2.magnitude(sobelx, sobely)
 
-        # Compute histogram
-        hist = cv2.calcHist([magnitude_uint8], [0], None, [64], [0, 256])
-        return cv2.normalize(hist, hist).flatten()
+        # Compute histogram directly from float magnitude (no intermediate uint8 conversion)
+        # Normalize magnitude to 0-255 range for histogram
+        max_mag = magnitude.max()
+        if max_mag > 0:
+            magnitude_norm = (magnitude / max_mag) * 255
+        else:
+            magnitude_norm = magnitude
+
+        # Use NumPy histogram (faster for 1D)
+        hist, _ = np.histogram(magnitude_norm, bins=64, range=(0, 256))
+        hist = hist.astype(np.float32)
+
+        # Normalize
+        hist_sum = hist.sum()
+        if hist_sum > 0:
+            hist = hist / hist_sum
+
+        return hist
 
     def compute_color_features(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Compute color histogram features in HSV space.
@@ -261,16 +303,36 @@ class ImageMatcher:
     ) -> dict[str, npt.NDArray[Any]]:
         """Compute all feature vectors for an image.
 
+        Optimized to cache grayscale conversion when computing edge and texture features.
+
         Args:
             img: Input image (BGR or grayscale).
 
         Returns:
             Dictionary with 'edge', 'texture', 'color' histogram features.
         """
+        # Cache grayscale conversion for edge and texture features
+        # (color features use HSV, so don't benefit from this cache)
+        gray = self._ensure_grayscale(img)
+
+        # Compute edge features (already grayscale)
+        if self.feature_method == "canny":
+            edge_features = self._compute_canny_features(gray)
+        elif self.feature_method == "spatial_pyramid":
+            edge_features = self._compute_spatial_pyramid_features(gray)
+        else:
+            edge_features = self._compute_hog_features(gray)
+
+        # Compute texture features (already grayscale)
+        texture_features = self.compute_texture_features(gray)
+
+        # Compute color features (needs original BGR image)
+        color_features = self.compute_color_features(img)
+
         return {
-            "edge": self.compute_edge_features(img),
-            "texture": self.compute_texture_features(img),
-            "color": self.compute_color_features(img)
+            "edge": edge_features,
+            "texture": texture_features,
+            "color": color_features
         }
 
     def compute_similarity(self, img1: npt.NDArray[Any], img2: npt.NDArray[Any]) -> float:

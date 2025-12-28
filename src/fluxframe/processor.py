@@ -3,7 +3,9 @@
 import hashlib
 import json
 import logging
+import multiprocessing as mp
 import random
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +19,61 @@ from .matcher import FeatureMethod, ImageMatcher
 from .models import FrameResult, VideoInfo
 
 logger = logging.getLogger(__name__)
+
+
+def _compute_features_worker(
+    img_path: Path,
+    comparison_size: int,
+    test_aspect_ratio: float,
+    edge_weight: float,
+    texture_weight: float,
+    color_weight: float,
+    feature_method: FeatureMethod
+) -> tuple[str, npt.NDArray[np.float32]] | None:
+    """Worker function to compute features for a single image (for multiprocessing).
+
+    Args:
+        img_path: Path to image file.
+        comparison_size: Size to resize images for comparison.
+        test_aspect_ratio: Aspect ratio to crop to.
+        edge_weight: Weight for edge features.
+        texture_weight: Weight for texture features.
+        color_weight: Weight for color features.
+        feature_method: Feature extraction method to use.
+
+    Returns:
+        Tuple of (image_path_str, feature_vector) or None if image fails to load.
+    """
+    img = cv2.imread(str(img_path))
+    if img is None:
+        return None
+
+    # Create matcher for this worker
+    matcher = ImageMatcher(
+        edge_weight=edge_weight,
+        texture_weight=texture_weight,
+        color_weight=color_weight,
+        feature_method=feature_method
+    )
+
+    # Crop to aspect ratio and resize
+    img_cropped = matcher.aspect_ratio_crop(img, test_aspect_ratio)
+    img_small = cv2.resize(
+        img_cropped,
+        (comparison_size, int(comparison_size / test_aspect_ratio))
+    )
+
+    # Compute features
+    features = matcher.compute_all_features(img_small)
+
+    # Concatenate weighted features into single vector
+    edge_vec = features["edge"] * matcher.edge_weight
+    texture_vec = features["texture"] * matcher.texture_weight
+    color_vec = features["color"] * matcher.color_weight
+
+    combined = np.concatenate([edge_vec, texture_vec, color_vec])
+
+    return (str(img_path), combined.astype(np.float32))
 
 
 class VideoImageMatcher:
@@ -195,36 +252,38 @@ class VideoImageMatcher:
         logger.info(f"Building FAISS index for {len(image_files)} images...")
         logger.info(f"  Comparison size: {self.comparison_size}px")
 
-        feature_vectors = []
-        valid_paths = []
-
         # Common aspect ratios to test
         test_aspect_ratio = 16 / 9  # Use most common aspect ratio for feature dimension
 
-        for img_path in tqdm(image_files, desc="Computing features"):
-            img = cv2.imread(str(img_path))
-            if img is None:
-                logger.warning(f"Failed to load image: {img_path}")
-                continue
+        # Determine number of workers
+        num_workers = max(1, mp.cpu_count() - 1)  # Leave one CPU free
+        logger.info(f"  Using {num_workers} parallel workers for feature extraction")
 
-            # Crop to aspect ratio and resize
-            img_cropped = self.matcher.aspect_ratio_crop(img, test_aspect_ratio)
-            img_small = cv2.resize(
-                img_cropped,
-                (self.comparison_size, int(self.comparison_size / test_aspect_ratio))
-            )
+        # Create partial function with fixed parameters
+        worker_func = partial(
+            _compute_features_worker,
+            comparison_size=self.comparison_size,
+            test_aspect_ratio=test_aspect_ratio,
+            edge_weight=self.matcher.edge_weight,
+            texture_weight=self.matcher.texture_weight,
+            color_weight=self.matcher.color_weight,
+            feature_method=self.matcher.feature_method
+        )
 
-            # Compute features
-            features = self.matcher.compute_all_features(img_small)
+        feature_vectors = []
+        valid_paths = []
 
-            # Concatenate weighted features into single vector
-            edge_vec = features["edge"] * self.matcher.edge_weight
-            texture_vec = features["texture"] * self.matcher.texture_weight
-            color_vec = features["color"] * self.matcher.color_weight
+        # Process images in parallel
+        with mp.Pool(processes=num_workers) as pool:
+            # Use imap_unordered for memory efficiency with large datasets
+            results = pool.imap_unordered(worker_func, image_files, chunksize=50)
 
-            combined = np.concatenate([edge_vec, texture_vec, color_vec])
-            feature_vectors.append(combined)
-            valid_paths.append(str(img_path))
+            # Collect results with progress bar
+            for result in tqdm(results, total=len(image_files), desc="Computing features"):
+                if result is not None:
+                    path, features = result
+                    valid_paths.append(path)
+                    feature_vectors.append(features)
 
         if not feature_vectors:
             msg = "No valid images found"
