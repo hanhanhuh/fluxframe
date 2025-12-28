@@ -289,8 +289,14 @@ class VideoImageMatcher:
             # Use imap_unordered for memory efficiency with large datasets
             results = pool.imap_unordered(worker_func, image_files, chunksize=50)
 
-            # Collect results with progress bar
-            for result in tqdm(results, total=len(image_files), desc="Computing features"):
+            # Collect results with progress bar (smoothed ETA)
+            for result in tqdm(
+                results,
+                total=len(image_files),
+                desc="Computing features",
+                smoothing=0.05,  # Exponential moving average for smoother ETA
+                mininterval=0.5  # Update display every 0.5 seconds minimum
+            ):
                 if result is not None:
                     path, features = result
                     valid_paths.append(path)
@@ -636,7 +642,12 @@ class VideoImageMatcher:
         frame_num = 0
         frames_since_checkpoint = 0
 
-        with tqdm(total=frames_to_process, desc="Matching frames") as pbar:
+        with tqdm(
+            total=frames_to_process,
+            desc="Matching frames",
+            smoothing=0.05,  # Exponential moving average for smoother ETA
+            mininterval=0.5  # Update display every 0.5 seconds minimum
+        ) as pbar:
             while frame_num < frames_to_process:
                 ret, frame = cap.read()
                 if not ret:
@@ -751,7 +762,12 @@ class VideoImageMatcher:
             key=lambda x: int(x[0].split("_")[1])
         )
 
-        for frame_key, data in tqdm(sorted_frames, desc="Generating output"):
+        for frame_key, data in tqdm(
+            sorted_frames,
+            desc="Generating output",
+            smoothing=0.05,  # Exponential moving average for smoother ETA
+            mininterval=0.5  # Update display every 0.5 seconds minimum
+        ):
             selected_path = data.get("selected")
 
             if selected_path and Path(selected_path).exists():
