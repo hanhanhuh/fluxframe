@@ -188,23 +188,33 @@ output_dir/
 
 ## Performance
 
-**Typical (500K images, 30fps video, CPU)**:
-- Index build: ~2-3 min (first run only)
+**Typical (500K images, 30fps video)**:
+- Index build (first run): ~45-60 min on 8-core CPU
+- Index build (cached): Instant reload
 - Per-frame search: ~0.3-0.5 sec
 - 5 min video: ~4-7 min total
 - 30 min video: ~25-40 min total
 
 **Scaling**:
+- 10K images: ~1-2 min build
+- 100K images: ~8-12 min build
+- 500K images: ~45-60 min build (8 cores)
+- Parallel processing uses all CPU cores
 - FAISS search: Very fast even with millions of vectors
 - Post-filtering: Negligible overhead
-- No-repeat: Best match selection, zero duplicates
 - Cache: Instant on subsequent runs
+
+**Memory**:
+- ~4 bytes per dimension per image
+- Canny (832D): 500K images = ~1.6GB
+- HOG (1872D): 500K images = ~3.6GB
 
 **Tips**:
 - Smaller `--comparison-size` (128/256) = faster
 - Larger `--comparison-size` (512/1024) = more accurate
-- FAISS scales to millions of images
-- Memory: ~4 bytes per dimension per image
+- `canny`: Fastest feature method
+- `hog`: Best quality, slower
+- Cache rebuilds only when parameters change
 
 ## Development
 
