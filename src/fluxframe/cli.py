@@ -67,6 +67,10 @@ def main() -> None:
                             "canny=fast/no spatial info (original), "
                             "spatial_pyramid=medium/preserves layout, "
                             "hog=slower/best motion preservation")
+    parser.add_argument("--save-samples", type=int, default=0,
+                       help="Number of frame-match comparison samples to save (0=disabled)")
+    parser.add_argument("--sample-interval", type=int, default=1,
+                       help="Save every Nth frame as sample (1=every frame)")
 
     args = parser.parse_args()
 
@@ -98,6 +102,8 @@ def main() -> None:
         seed=args.seed,
         num_workers=args.num_workers,
         fps_override=args.fps_override,
+        save_samples=args.save_samples,
+        sample_interval=args.sample_interval,
         feature_method=args.feature_method
     )
 

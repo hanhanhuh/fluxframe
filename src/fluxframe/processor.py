@@ -88,7 +88,8 @@ class VideoImageMatcher:
         demo_seconds: int = 20, demo_images: int = 1000,
         checkpoint_batch_size: int = 10, seed: int | None = None,
         num_workers: int | None = None, fps_override: float | None = None,  # noqa: ARG002
-        feature_method: FeatureMethod = "canny"
+        feature_method: FeatureMethod = "canny",
+        save_samples: int = 0, sample_interval: int = 1
     ):
         """
         Initialize the video-image matcher with FAISS indexing.
@@ -115,11 +116,16 @@ class VideoImageMatcher:
                 - "canny": Fast, no spatial info (original)
                 - "spatial_pyramid": 4x4 grid, preserves layout
                 - "hog": Best motion preservation
+            save_samples: Number of comparison samples to save (0 = disabled)
+            sample_interval: Save every Nth frame as sample (1 = every frame)
         """
         self.video_path = Path(video_path)
         self.image_folder = Path(image_folder)
         self.output_dir = Path(output_dir)
         self.top_n = top_n
+        self.save_samples = save_samples
+        self.sample_interval = sample_interval
+        self.samples_saved = 0
         self.similarity_threshold = similarity_threshold
         self.no_repeat = no_repeat
         self.comparison_size = comparison_size
@@ -139,6 +145,11 @@ class VideoImageMatcher:
         self.matcher = ImageMatcher(edge_weight, texture_weight, color_weight, feature_method)
         self.checkpoint_path = self.output_dir / "checkpoint.json"
         self.results_path = self.output_dir / "results.json"
+
+        # Sample comparison directory
+        self.samples_dir = self.output_dir / "comparison_samples"
+        if self.save_samples > 0:
+            self.samples_dir.mkdir(parents=True, exist_ok=True)
 
         # FAISS cache files
         self.cache_metadata_path = self.output_dir / "cache_metadata.json"
@@ -459,6 +470,51 @@ class VideoImageMatcher:
 
         return results
 
+    def save_comparison_sample(
+        self,
+        frame: npt.NDArray[Any],
+        matched_image_path: str,
+        frame_num: int,
+        similarity: float
+    ) -> None:
+        """Save a side-by-side comparison of frame and matched image.
+
+        Args:
+            frame: Original video frame.
+            matched_image_path: Path to the matched image.
+            frame_num: Frame number.
+            similarity: Similarity score of the match.
+        """
+        # Load matched image
+        matched_img = cv2.imread(matched_image_path)
+        if matched_img is None:
+            logger.warning(f"Failed to load matched image for sample: {matched_image_path}")
+            return
+
+        # Resize both to same height for side-by-side comparison
+        target_height = 480
+        frame_aspect = frame.shape[1] / frame.shape[0]
+        matched_aspect = matched_img.shape[1] / matched_img.shape[0]
+
+        frame_resized = cv2.resize(frame, (int(target_height * frame_aspect), target_height))
+        matched_resized = cv2.resize(
+            matched_img, (int(target_height * matched_aspect), target_height)
+        )
+
+        # Create side-by-side comparison
+        comparison = np.hstack([frame_resized, matched_resized])
+
+        # Add text overlay with frame number and similarity
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        text = f"Frame {frame_num:06d} | Similarity: {similarity:.3f}"
+        cv2.putText(
+            comparison, text, (10, 30), font, 0.8, (0, 255, 0), 2, cv2.LINE_AA
+        )
+
+        # Save comparison image
+        sample_path = self.samples_dir / f"sample_{frame_num:06d}.jpg"
+        cv2.imwrite(str(sample_path), comparison)
+
     def select_match(self, top_matches: list[tuple[str, float]]) -> str | None:
         """Select best match from candidates.
 
@@ -615,6 +671,14 @@ class VideoImageMatcher:
                     # Store result
                     frame_result = FrameResult(top_matches=top_matches, selected=selected)
                     checkpoint[frame_key] = frame_result.model_dump()
+
+                    # Save comparison sample if enabled
+                    if (self.save_samples > 0 and
+                        self.samples_saved < self.save_samples and
+                        frame_num % self.sample_interval == 0):
+                        similarity = top_matches[0][1] if top_matches else 0.0
+                        self.save_comparison_sample(frame, selected, frame_num, similarity)
+                        self.samples_saved += 1
 
                     frames_since_checkpoint += 1
 
