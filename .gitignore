@@ -60,8 +60,8 @@ dmypy.json
 *.bmp
 *.tiff
 *.webp
-output/
-outputs/
+output*
+outputs*
 checkpoint.json
 results.json
 image_features.pkl
