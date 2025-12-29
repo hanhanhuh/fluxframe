@@ -128,8 +128,9 @@ class ImageMatcher:
                 import torchvision.models as models
             except ImportError as e:
                 msg = (
-                    "First-time setup requires PyTorch to export ONNX model. "
-                    "Install with: pip install torch torchvision\n"
+                    "First-time setup requires PyTorch to export ONNX model.\n"
+                    "Install CPU-only version (faster, smaller):\n"
+                    "  pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu\n"
                     "After first run, only onnxruntime is needed."
                 )
                 raise ImportError(msg) from e
