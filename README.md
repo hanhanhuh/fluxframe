@@ -30,6 +30,16 @@ Using [uv](https://github.com/astral-sh/uv) (recommended):
 uv pip install -e .
 ```
 
+**For MobileNet support (optional):**
+```bash
+# One-time setup (exports ONNX model, ~2GB download):
+uv pip install -e ".[mobilenet-setup]"
+
+# After ONNX export completes, switch to runtime-only dependencies:
+uv pip uninstall torch torchvision
+# Now only onnxruntime and onnxscript remain (~200MB)
+```
+
 Or using pip:
 
 ```bash
@@ -134,13 +144,8 @@ fluxframe input.mp4 /path/to/images ./output \
 
 **Note:**
 - MobileNet uses 2×2 spatial pyramid pooling to preserve perspective/layout, ignoring edge/texture/color weights
-- MobileNet requires ONNX Runtime (`pip install onnxruntime`)
-- First run needs PyTorch + onnxscript to export model (CPU-only version recommended):
-  ```bash
-  pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-  pip install onnxscript
-  ```
-  After export completes (~10 seconds), PyTorch can be uninstalled - subsequent runs use cached ONNX model
+- Requires one-time setup: `uv pip install -e ".[mobilenet-setup]"` (see Installation section)
+- After ONNX export (~10 seconds), PyTorch can be uninstalled - subsequent runs use cached ONNX model
 
 ## How It Works
 
