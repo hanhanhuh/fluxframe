@@ -1,7 +1,7 @@
 """Image similarity matching using multiple metrics (color, edges, texture)."""
 
 
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 import cv2
 import numpy as np
@@ -13,12 +13,41 @@ try:
 except ImportError:
     HAS_SKIMAGE = False
 
+try:
+    import onnxruntime as ort
+    HAS_ONNX = True
+except ImportError:
+    HAS_ONNX = False
+
 # Constants for magic values
 _COLOR_CHANNELS = 3
 _GRAYSCALE_CHANNELS = 2
 _ASPECT_RATIO_TOLERANCE = 0.01
 
-FeatureMethod = Literal["canny", "hog", "spatial_pyramid"]
+FeatureMethod = Literal["canny", "hog", "spatial_pyramid", "mobilenet"]
+
+
+class ClassicalFeatures(TypedDict):
+    """Feature dictionary for classical (non-neural) methods.
+
+    Contains separate histograms for edge, texture, and color features.
+    Used by: canny, hog, spatial_pyramid methods.
+    """
+    edge: npt.NDArray[np.float32]
+    texture: npt.NDArray[np.float32]
+    color: npt.NDArray[np.float32]
+
+
+class NeuralFeatures(TypedDict):
+    """Feature dictionary for neural network methods.
+
+    Contains only edge features (neural networks encode all information in one vector).
+    Used by: mobilenet method.
+    """
+    edge: npt.NDArray[np.float32]
+
+
+FeatureDict = ClassicalFeatures | NeuralFeatures
 
 
 class ImageMatcher:
@@ -49,20 +78,101 @@ class ImageMatcher:
                 - "canny": Fast, no spatial info (current method)
                 - "spatial_pyramid": 4x4 grid of Canny histograms (preserves layout)
                 - "hog": Histogram of Oriented Gradients (best motion preservation)
+                - "mobilenet": MobileNetV3-Small early layers (neural, ~3-5ms)
 
         Note:
             Weights are automatically normalized to sum to 1.0 regardless of input values.
+            For "mobilenet" mode, weights are ignored (uses cosine similarity directly).
         """
         self.edge_weight = edge_weight
         self.texture_weight = texture_weight
         self.color_weight = color_weight
         self.feature_method = feature_method
 
-        # Normalize weights
+        # Normalize weights (only used for non-neural methods)
         total = edge_weight + texture_weight + color_weight
         self.edge_weight /= total
         self.texture_weight /= total
         self.color_weight /= total
+
+        # Initialize MobileNet model if needed
+        self._mobilenet_model = None
+        self._mobilenet_transform = None
+        if feature_method == "mobilenet":
+            self._init_mobilenet()
+
+    def _init_mobilenet(self) -> None:
+        """Initialize MobileNetV3-Small ONNX model (truncated for speed).
+
+        Downloads pre-exported ONNX model on first use, caches for subsequent runs.
+        """
+        if not HAS_ONNX:
+            msg = (
+                "ONNX Runtime is required for MobileNet features. "
+                "Install with: pip install onnxruntime"
+            )
+            raise ImportError(msg)
+
+        # ONNX model will be downloaded/cached here
+        # For now, we'll export from PyTorch on-the-fly (requires torch temporarily)
+        # TODO: Host pre-exported ONNX model online for direct download
+        import pathlib
+        cache_dir = pathlib.Path.home() / ".cache" / "fluxframe"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        onnx_path = cache_dir / "mobilenetv3_small_block4.onnx"
+
+        if not onnx_path.exists():
+            # Export model on first run (requires torch temporarily)
+            try:
+                import torch
+                import torchvision.models as models
+            except ImportError as e:
+                msg = (
+                    "First-time setup requires PyTorch to export ONNX model. "
+                    "Install with: pip install torch torchvision\n"
+                    "After first run, only onnxruntime is needed."
+                )
+                raise ImportError(msg) from e
+
+            # Load and truncate model
+            model = models.mobilenet_v3_small(
+                weights=models.MobileNet_V3_Small_Weights.DEFAULT
+            )
+            model.eval()
+            truncated = torch.nn.Sequential(*list(model.features[:4]))
+
+            # Export to ONNX (use temp file to avoid partial writes)
+            import tempfile
+            temp_path = onnx_path.with_suffix(".onnx.tmp")
+            try:
+                dummy_input = torch.randn(1, 3, 224, 224)
+                torch.onnx.export(
+                    truncated,
+                    dummy_input,
+                    str(temp_path),
+                    input_names=["input"],
+                    output_names=["output"],
+                    dynamic_axes={"input": {0: "batch"}, "output": {0: "batch"}},
+                    opset_version=14,
+                    verbose=False,
+                )
+                # Atomic rename only if export succeeded
+                temp_path.rename(onnx_path)
+            except Exception:
+                # Clean up partial file on failure
+                if temp_path.exists():
+                    temp_path.unlink()
+                raise
+
+        # Load ONNX model with CPU execution provider
+        self._mobilenet_model = ort.InferenceSession(
+            str(onnx_path),
+            providers=["CPUExecutionProvider"]
+        )
+
+        # Store input/output names
+        self._onnx_input_name = self._mobilenet_model.get_inputs()[0].name
+        self._onnx_output_name = self._mobilenet_model.get_outputs()[0].name
 
     def aspect_ratio_crop(self, img: npt.NDArray[Any], target_ratio: float) -> npt.NDArray[Any]:
         """Crop image to target aspect ratio using center crop (no padding bars).
@@ -116,6 +226,8 @@ class ImageMatcher:
             return self._compute_canny_features(img)
         if self.feature_method == "spatial_pyramid":
             return self._compute_spatial_pyramid_features(img)
+        if self.feature_method == "mobilenet":
+            return self._compute_mobilenet_features(img)
         return self._compute_hog_features(img)
 
     def _compute_canny_features(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:
@@ -220,6 +332,63 @@ class ImageMatcher:
 
         return features.astype(np.float32)
 
+    def _compute_mobilenet_features(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:
+        """Compute MobileNetV3-Small features with spatial pyramid pooling.
+
+        Preserves spatial layout (top/bottom/left/right) for perspective/contour matching.
+        Uses 2×2 spatial grid to maintain "where" information (e.g., horizon at bottom vs top).
+
+        Args:
+            img: Input image (BGR).
+
+        Returns:
+            Spatial pyramid pooled feature vector (2×2 grid × 48 channels = 192D).
+        """
+        if self._mobilenet_model is None:
+            msg = "MobileNet model not initialized"
+            raise RuntimeError(msg)
+
+        # Convert BGR to RGB
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        # Resize to 224×224 (ImageNet input size)
+        resized = cv2.resize(rgb, (224, 224))
+
+        # Normalize with ImageNet mean/std
+        normalized = resized.astype(np.float32) / 255.0
+        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+        std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+        normalized = (normalized - mean) / std
+
+        # Convert to NCHW format (batch, channels, height, width)
+        input_tensor = np.transpose(normalized, (2, 0, 1))
+        input_tensor = np.expand_dims(input_tensor, axis=0)  # Add batch dimension
+
+        # Run ONNX inference
+        features = self._mobilenet_model.run(
+            [self._onnx_output_name],
+            {self._onnx_input_name: input_tensor}
+        )[0]  # Shape: [1, 48, 14, 14]
+
+        # Apply 2×2 spatial pyramid pooling
+        # Preserves layout: top-left, top-right, bottom-left, bottom-right
+        _, channels, h, w = features.shape
+        grid_h, grid_w = h // 2, w // 2
+
+        pooled_features = []
+        for i in range(2):
+            for j in range(2):
+                # Extract spatial cell
+                cell = features[0, :, i*grid_h:(i+1)*grid_h, j*grid_w:(j+1)*grid_w]
+                # Average pool within cell
+                cell_pooled = cell.mean(axis=(1, 2))  # [48]
+                pooled_features.append(cell_pooled)
+
+        # Concatenate all cells: 4 cells × 48 channels = 192D
+        result = np.concatenate(pooled_features, axis=0)
+
+        return result.astype(np.float32)
+
     def compute_texture_features(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Compute texture features using Sobel gradient magnitude.
 
@@ -298,9 +467,29 @@ class ImageMatcher:
         # Normalize to 0-1 range (correlation can be negative)
         return (similarity + 1) / 2
 
+    def _cosine_similarity(self, feat1: npt.NDArray[Any], feat2: npt.NDArray[Any]) -> float:
+        """Compute cosine similarity between two feature vectors.
+
+        Args:
+            feat1: First feature vector.
+            feat2: Second feature vector.
+
+        Returns:
+            Cosine similarity (0-1, higher is more similar).
+        """
+        dot_product = np.dot(feat1, feat2)
+        norm1 = np.linalg.norm(feat1)
+        norm2 = np.linalg.norm(feat2)
+
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+
+        # Cosine similarity is in [-1, 1], normalize to [0, 1]
+        return (dot_product / (norm1 * norm2) + 1) / 2
+
     def compute_all_features(
         self, img: npt.NDArray[Any]
-    ) -> dict[str, npt.NDArray[Any]]:
+    ) -> FeatureDict:
         """Compute all feature vectors for an image.
 
         Optimized to cache grayscale conversion when computing edge and texture features.
@@ -311,6 +500,11 @@ class ImageMatcher:
         Returns:
             Dictionary with 'edge', 'texture', 'color' histogram features.
         """
+        # MobileNet mode: only compute neural features
+        if self.feature_method == "mobilenet":
+            return {"edge": self._compute_mobilenet_features(img)}
+
+        # Classical methods: compute all features
         # Cache grayscale conversion for edge and texture features
         # (color features use HSV, so don't benefit from this cache)
         gray = self._ensure_grayscale(img)
@@ -335,6 +529,26 @@ class ImageMatcher:
             "color": color_features
         }
 
+    def features_to_vector(self, features: FeatureDict) -> npt.NDArray[np.float32]:
+        """Convert feature dict to single vector for FAISS indexing.
+
+        Args:
+            features: Feature dictionary from compute_all_features.
+
+        Returns:
+            Single concatenated and weighted feature vector.
+        """
+        # MobileNet: return features directly (no weighting/concatenation)
+        if self.feature_method == "mobilenet":
+            return features["edge"].astype(np.float32)
+
+        # Classical methods: weighted concatenation
+        edge_vec = features["edge"] * self.edge_weight
+        texture_vec = features["texture"] * self.texture_weight
+        color_vec = features["color"] * self.color_weight
+
+        return np.concatenate([edge_vec, texture_vec, color_vec]).astype(np.float32)
+
     def compute_similarity(self, img1: npt.NDArray[Any], img2: npt.NDArray[Any]) -> float:
         """Compute weighted similarity between two images.
 
@@ -350,7 +564,13 @@ class ImageMatcher:
         if img1.shape != local_img2.shape:
             local_img2 = cv2.resize(local_img2, (img1.shape[1], img1.shape[0]))
 
-        # Compute features
+        # MobileNet mode: use cosine similarity only
+        if self.feature_method == "mobilenet":
+            feat1 = self._compute_mobilenet_features(img1)
+            feat2 = self._compute_mobilenet_features(local_img2)
+            return self._cosine_similarity(feat1, feat2)
+
+        # Classical methods: weighted combination
         edge1 = self.compute_edge_features(img1)
         edge2 = self.compute_edge_features(local_img2)
         edge_sim = self.compare_histograms(edge1, edge2)
@@ -370,23 +590,27 @@ class ImageMatcher:
 
     def compute_similarity_from_features(
         self,
-        features1: dict[str, npt.NDArray[Any]],
-        features2: dict[str, npt.NDArray[Any]]
+        features1: FeatureDict,
+        features2: FeatureDict
     ) -> float:
         """Compute weighted similarity from pre-computed features.
 
         Args:
-            features1: First image features dict with 'edge', 'texture', 'color' keys.
-            features2: Second image features dict with 'edge', 'texture', 'color' keys.
+            features1: First image features dict from compute_all_features.
+            features2: Second image features dict from compute_all_features.
 
         Returns:
             Weighted similarity score (0-1, higher is more similar).
         """
+        # MobileNet mode: use cosine similarity
+        if self.feature_method == "mobilenet":
+            return self._cosine_similarity(features1["edge"], features2["edge"])
+
+        # Classical methods: weighted combination of histogram comparisons
         edge_sim = self.compare_histograms(features1["edge"], features2["edge"])
         texture_sim = self.compare_histograms(features1["texture"], features2["texture"])
         color_sim = self.compare_histograms(features1["color"], features2["color"])
 
-        # Weighted combination
         return (self.edge_weight * edge_sim +
                 self.texture_weight * texture_sim +
                 self.color_weight * color_sim)

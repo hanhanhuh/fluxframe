@@ -10,6 +10,7 @@ Optimized for CPU performance with FAISS vector search, making it suitable for m
   - **Canny**: Fast edge histogram (default)
   - **Spatial Pyramid**: 4x4 grid preserves spatial layout
   - **HOG**: Histogram of Oriented Gradients for best motion preservation
+  - **MobileNet**: Neural network features for semantic similarity
 - **Multi-metric similarity**: Combines edge, texture (Sobel), and color (HSV) features
 - **FAISS vector search**: Fast exact similarity search with IndexFlatIP
 - **No-repeat mode**: Guarantees zero duplicates - always picks best unused match
@@ -94,7 +95,7 @@ fluxframe input.mp4 /path/to/images ./output \
 - `output`: Output directory
 
 **Optional:**
-- `--feature-method`: `canny` (fast), `spatial_pyramid` (balanced), `hog` (best) (default: canny)
+- `--feature-method`: `canny` (fast), `spatial_pyramid` (balanced), `hog` (best motion), `mobilenet` (semantic) (default: canny)
 - `--search-depth`: Number of top matches to find (default: 10)
 - `--edge-weight`: Edge similarity weight 0-1 (default: 0.33)*
 - `--texture-weight`: Texture similarity weight 0-1 (default: 0.33)*
@@ -112,17 +113,22 @@ fluxframe input.mp4 /path/to/images ./output \
 - `--save-samples`: Number of frame-match comparison samples to save (default: 0)
 - `--sample-interval`: Save every Nth frame as sample (default: 1)
 
-*Weights are auto-normalized to sum to 1.0
+*Weights are auto-normalized to sum to 1.0 (ignored for mobilenet)
 
 ### Feature Methods
 
-| Method | Speed | Motion | Feature Size |
-|--------|-------|--------|--------------|
-| `canny` | ⭐⭐⭐⭐⭐ Fast | ❌ Poor | 832D |
-| `spatial_pyramid` | ⭐⭐⭐⭐ Medium | ⭐⭐⭐ Good | 1088D |
-| `hog` | ⭐⭐⭐ Slower | ⭐⭐⭐⭐⭐ Excellent | 1332D* |
+| Method | Speed | Quality | Feature Size | Spatial Info |
+|--------|-------|---------|--------------|--------------|
+| `canny` | ⭐⭐⭐⭐⭐ | ⭐⭐ | 832D | ❌ None |
+| `spatial_pyramid` | ⭐⭐⭐⭐ | ⭐⭐⭐ | 1088D | ✅ 4×4 grid |
+| `hog` | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 1332D* | ✅ Cells |
+| `mobilenet` | ⭐⭐⭐ | ⭐⭐⭐⭐ | 192D | ✅ 2×2 grid |
 
 *HOG dimensions vary with `--comparison-size` (684D at 128px, 1332D at 256px, 4896D at 512px)
+
+**Note:**
+- MobileNet uses 2×2 spatial pyramid pooling to preserve perspective/layout, ignoring edge/texture/color weights
+- MobileNet requires ONNX Runtime (`pip install onnxruntime`) - first run exports model from PyTorch (temporary), subsequent runs use cached ONNX model
 
 ## How It Works
 
@@ -222,6 +228,7 @@ output_dir/
 - ~4 bytes per dimension per image
 - Canny (832D): 500K images = ~1.6GB
 - Spatial Pyramid (1088D): 500K images = ~2.1GB
+- MobileNet (192D): 500K images = ~384MB
 - HOG at 256px (1332D): 500K images = ~2.5GB
 - HOG at 512px (4896D): 500K images = ~9.3GB
 

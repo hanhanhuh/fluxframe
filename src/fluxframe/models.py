@@ -41,20 +41,3 @@ class VideoInfo(BaseModel):
     width: int
     height: int
     total_frames: int
-
-
-class ImageFeatures(BaseModel):
-    """Pre-computed image features for a specific aspect ratio.
-
-    Attributes:
-        aspect_ratio: The aspect ratio (width/height) these features represent.
-        edge: Normalized edge histogram (256 bins).
-        texture: Normalized texture gradient histogram (64 bins).
-        color: Normalized HSV color histogram (512 bins: 8x8x8).
-    """
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    aspect_ratio: float
-    edge: list[float]
-    texture: list[float]
-    color: list[float]
