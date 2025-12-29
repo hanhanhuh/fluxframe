@@ -228,7 +228,7 @@ def main() -> None:
             image_folder=args.images,
             output_dir=str(output_dir / method),
             feature_method=method,
-            search_depth=args.top_k,
+            top_n=args.top_k,
         )
 
         # Build index
