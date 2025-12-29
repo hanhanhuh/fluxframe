@@ -135,11 +135,11 @@ fluxframe input.mp4 /path/to/images ./output \
 **Note:**
 - MobileNet uses 2×2 spatial pyramid pooling to preserve perspective/layout, ignoring edge/texture/color weights
 - MobileNet requires ONNX Runtime (`pip install onnxruntime`)
-- First run needs PyTorch to export model (CPU-only version recommended):
+- First run needs PyTorch + onnxscript to export model (CPU-only version recommended):
   ```bash
-  pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+  pip install torch torchvision onnxscript --index-url https://download.pytorch.org/whl/cpu
   ```
-  After export completes, PyTorch can be uninstalled - subsequent runs use cached ONNX model
+  After export completes (~10 seconds), PyTorch can be uninstalled - subsequent runs use cached ONNX model
 
 ## How It Works
 

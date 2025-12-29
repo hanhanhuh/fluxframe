@@ -159,6 +159,18 @@ class ImageMatcher:
                 )
                 # Atomic rename only if export succeeded
                 temp_path.rename(onnx_path)
+            except ImportError as e:
+                # Clean up partial file on failure
+                if temp_path.exists():
+                    temp_path.unlink()
+                # Provide helpful error for missing onnxscript
+                if "onnxscript" in str(e):
+                    msg = (
+                        "ONNX export requires onnxscript package.\n"
+                        "Install with: pip install onnxscript"
+                    )
+                    raise ImportError(msg) from e
+                raise
             except Exception:
                 # Clean up partial file on failure
                 if temp_path.exists():
