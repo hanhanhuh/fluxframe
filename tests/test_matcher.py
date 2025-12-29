@@ -148,6 +148,104 @@ class TestImageMatcher:
         # Should be very close to 1.0
         assert similarity > 0.99
 
+    def test_feature_dict_classical_methods(self):
+        """Test that classical methods return all three feature keys."""
+        for method in ["canny", "hog", "spatial_pyramid"]:
+            matcher = ImageMatcher(feature_method=method)
+            img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+
+            features = matcher.compute_all_features(img)
+
+            # Classical methods must have all three keys
+            assert "edge" in features
+            assert "texture" in features
+            assert "color" in features
+            assert isinstance(features["edge"], np.ndarray)
+            assert isinstance(features["texture"], np.ndarray)
+            assert isinstance(features["color"], np.ndarray)
+
+    def test_features_to_vector_classical(self):
+        """Test features_to_vector with classical methods."""
+        matcher = ImageMatcher(feature_method="canny")
+        img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+
+        features = matcher.compute_all_features(img)
+        vector = matcher.features_to_vector(features)
+
+        # Should be concatenation of weighted features
+        expected_size = 256 + 64 + 512  # edge + texture + color
+        assert vector.shape == (expected_size,)
+        assert vector.dtype == np.float32
+
+    @pytest.mark.skipif(
+        not hasattr(ImageMatcher, "_compute_mobilenet_features"),
+        reason="MobileNet not available"
+    )
+    def test_mobilenet_spatial_pyramid_shape(self):
+        """Test that MobileNet with spatial pyramid returns correct shape."""
+        try:
+            matcher = ImageMatcher(feature_method="mobilenet")
+        except ImportError:
+            pytest.skip("ONNX Runtime not installed")
+
+        img = np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)
+
+        # Mock the ONNX model to avoid needing PyTorch for export
+        import unittest.mock as mock
+
+        # Create fake ONNX output: [1, 48, 14, 14]
+        fake_output = np.random.randn(1, 48, 14, 14).astype(np.float32)
+
+        with mock.patch.object(
+            matcher._mobilenet_model,
+            "run",
+            return_value=[fake_output]
+        ):
+            features = matcher._compute_mobilenet_features(img)
+
+        # Should be 2x2 grid * 48 channels = 192D
+        assert features.shape == (192,)
+        assert features.dtype == np.float32
+
+    @pytest.mark.skipif(
+        not hasattr(ImageMatcher, "_compute_mobilenet_features"),
+        reason="MobileNet not available"
+    )
+    def test_mobilenet_spatial_pyramid_preserves_layout(self):
+        """Test that spatial pyramid pooling preserves spatial layout."""
+        try:
+            matcher = ImageMatcher(feature_method="mobilenet")
+        except ImportError:
+            pytest.skip("ONNX Runtime not installed")
+
+        import unittest.mock as mock
+
+        # Create features with distinct spatial patterns
+        # Top half = high values, bottom half = low values
+        fake_output = np.zeros((1, 48, 14, 14), dtype=np.float32)
+        fake_output[0, :, :7, :] = 1.0   # Top half
+        fake_output[0, :, 7:, :] = 0.0   # Bottom half
+
+        with mock.patch.object(
+            matcher._mobilenet_model,
+            "run",
+            return_value=[fake_output]
+        ):
+            features = matcher._compute_mobilenet_features(
+                np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)
+            )
+
+        # Extract the 4 cells (top-left, top-right, bottom-left, bottom-right)
+        cell_size = 48
+        top_left = features[0:cell_size]
+        top_right = features[cell_size:cell_size*2]
+        bottom_left = features[cell_size*2:cell_size*3]
+        bottom_right = features[cell_size*3:cell_size*4]
+
+        # Top cells should have higher values than bottom cells
+        assert np.mean(top_left) > np.mean(bottom_left)
+        assert np.mean(top_right) > np.mean(bottom_right)
+
 
 class TestVideoImageMatcherInit:
     """Test VideoImageMatcher initialization and setup."""

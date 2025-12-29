@@ -15,7 +15,7 @@ import numpy as np
 import numpy.typing as npt
 from tqdm import tqdm
 
-from .matcher import FeatureMethod, ImageMatcher
+from .matcher import FeatureDict, FeatureMethod, ImageMatcher
 from .models import FrameResult, VideoInfo
 
 logger = logging.getLogger(__name__)
@@ -63,17 +63,11 @@ def _compute_features_worker(
         (comparison_size, int(comparison_size / test_aspect_ratio))
     )
 
-    # Compute features
+    # Compute features and convert to vector for FAISS
     features = matcher.compute_all_features(img_small)
+    feature_vector = matcher.features_to_vector(features)
 
-    # Concatenate weighted features into single vector
-    edge_vec = features["edge"] * matcher.edge_weight
-    texture_vec = features["texture"] * matcher.texture_weight
-    color_vec = features["color"] * matcher.color_weight
-
-    combined = np.concatenate([edge_vec, texture_vec, color_vec])
-
-    return (str(img_path), combined.astype(np.float32))
+    return (str(img_path), feature_vector)
 
 
 class VideoImageMatcher:
@@ -443,16 +437,10 @@ class VideoImageMatcher:
             (self.comparison_size, int(self.comparison_size / target_aspect_ratio))
         )
 
-        # Compute frame features
+        # Compute frame features and convert to vector
         features = self.matcher.compute_all_features(frame_small)
-
-        # Combine weighted features
-        edge_vec = features["edge"] * self.matcher.edge_weight
-        texture_vec = features["texture"] * self.matcher.texture_weight
-        color_vec = features["color"] * self.matcher.color_weight
-
-        query_vector = np.concatenate([edge_vec, texture_vec, color_vec])
-        query_vector = query_vector.reshape(1, -1).astype(np.float32)
+        query_vector = self.matcher.features_to_vector(features)
+        query_vector = query_vector.reshape(1, -1)
 
         # Normalize for cosine similarity
         faiss.normalize_L2(query_vector)
