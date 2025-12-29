@@ -36,12 +36,18 @@ Or using pip:
 pip install -e .
 ```
 
-## Usage
+## Quick Start
 
-Basic:
+**Basic usage:**
 ```bash
 fluxframe <video_file> <image_folder> <output_dir>
 ```
+
+**Compare all feature methods (demo):**
+```bash
+python demo_feature_comparison.py <video_file> <image_folder> --frames 5
+```
+This generates side-by-side comparisons showing how different methods match frames, with performance benchmarks.
 
 ### Examples
 
