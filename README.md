@@ -137,7 +137,8 @@ fluxframe input.mp4 /path/to/images ./output \
 - MobileNet requires ONNX Runtime (`pip install onnxruntime`)
 - First run needs PyTorch + onnxscript to export model (CPU-only version recommended):
   ```bash
-  pip install torch torchvision onnxscript --index-url https://download.pytorch.org/whl/cpu
+  pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+  pip install onnxscript
   ```
   After export completes (~10 seconds), PyTorch can be uninstalled - subsequent runs use cached ONNX model
 
