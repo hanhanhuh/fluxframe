@@ -142,7 +142,7 @@ class ImageMatcher:
             model.eval()
             truncated = torch.nn.Sequential(*list(model.features[:4]))
 
-            # Export to ONNX (use temp file to avoid partial writes)
+            # Export to ONNX optimized for CPU (use temp file to avoid partial writes)
             import tempfile
             temp_path = onnx_path.with_suffix(".onnx.tmp")
             try:
@@ -154,7 +154,8 @@ class ImageMatcher:
                     input_names=["input"],
                     output_names=["output"],
                     dynamic_axes={"input": {0: "batch"}, "output": {0: "batch"}},
-                    opset_version=14,
+                    opset_version=17,  # Opset 17+ recommended for best compatibility
+                    do_constant_folding=True,  # Enable constant folding optimization
                     verbose=False,
                 )
                 # Atomic rename only if export succeeded
@@ -177,9 +178,14 @@ class ImageMatcher:
                     temp_path.unlink()
                 raise
 
-        # Load ONNX model with CPU execution provider
+        # Load ONNX model with CPU optimizations
+        sess_options = ort.SessionOptions()
+        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_EXTENDED
+        sess_options.intra_op_num_threads = 1  # Single thread per op (better for small models)
+
         self._mobilenet_model = ort.InferenceSession(
             str(onnx_path),
+            sess_options,
             providers=["CPUExecutionProvider"]
         )
 

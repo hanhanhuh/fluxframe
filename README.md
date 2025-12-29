@@ -32,12 +32,17 @@ uv pip install -e .
 
 **For MobileNet support (optional):**
 ```bash
-# One-time setup (exports ONNX model, ~2GB download):
-uv pip install -e ".[mobilenet-setup]"
+# Install onnxscript (runtime dependency)
+uv pip install -e ".[mobilenet]"
 
-# After ONNX export completes, switch to runtime-only dependencies:
+# One-time: Install PyTorch CPU-only for ONNX export (~200MB)
+uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Export ONNX model (automatic on first use, or run manually)
+python -c "from src.fluxframe.matcher import ImageMatcher; ImageMatcher(feature_method='mobilenet')"
+
+# After ONNX model cached (~/.cache/fluxframe/), uninstall PyTorch
 uv pip uninstall torch torchvision
-# Now only onnxruntime and onnxscript remain (~200MB)
 ```
 
 Or using pip:

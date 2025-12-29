@@ -23,13 +23,9 @@ dev = [
 ]
 mobilenet = [
     "onnxscript>=0.1.0",
-    # PyTorch CPU-only - install separately with:
-    # uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-]
-mobilenet-setup = [
-    "torch>=2.0.0",
-    "torchvision>=0.15.0",
-    "onnxscript>=0.1.0",
+    # PyTorch CPU-only required for first-time ONNX export
+    # Cannot specify in pyproject.toml (requires custom index URL)
+    # Install manually: uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 ]
 
 [project.scripts]
