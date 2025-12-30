@@ -1,5 +1,10 @@
 # FluxFrame
 
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Type Checked](https://img.shields.io/badge/mypy-strict-blue.svg)](http://mypy-lang.org/)
+[![Code Style](https://img.shields.io/badge/code%20style-ruff-black.svg)](https://github.com/astral-sh/ruff)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 Create temporal video collages by replacing each frame with similar images from large datasets. FluxFrame transforms videos into artistic visual remixes where the original motion and composition remain recognizable, but constructed entirely from different source images.
 
 Optimized for CPU performance with FAISS vector search, memory-mapped indexes, and optional TurboJPEG (3x faster image loading), making it suitable for matching against 500K+ image pools.
