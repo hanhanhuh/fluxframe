@@ -536,7 +536,11 @@ class ImageMatcher:
         return features
 
     def fit_reducer(self, features_batch: npt.NDArray[np.float32]) -> None:
-        """Fit random projection for dimensionality reduction (8192D→256D)."""
+        """Fit random projection for dimensionality reduction (8192D→256D).
+
+        Args:
+            features_batch: Sample features for fitting (N × 8192).
+        """
         if self.dim_reducer is None:
             self.dim_reducer = GaussianRandomProjection(
                 n_components=self.reduced_dims,
@@ -546,7 +550,14 @@ class ImageMatcher:
             self.dim_reducer.fit(features_batch)
 
     def transform_features(self, features: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
-        """Apply dimensionality reduction (8192D→256D) if enabled."""
+        """Apply dimensionality reduction (8192D→256D) if enabled.
+
+        Args:
+            features: Input features (N × 8192 or 8192).
+
+        Returns:
+            Reduced features (N × 256 or 256) if enabled, otherwise unchanged.
+        """
         if not self.reduce_spatial_color or self.dim_reducer is None:
             return features
 
