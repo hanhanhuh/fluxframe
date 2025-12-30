@@ -16,7 +16,7 @@ from fluxframe import VideoImageMatcher
 def create_test_video(path: Path, num_frames: int = 10, fps: int = 30,
                      width: int = 320, height: int = 240) -> None:
     """Create a test video with different colored frames."""
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     video_writer = cv2.VideoWriter(str(path), fourcc, fps, (width, height))
 
     for i in range(num_frames):
@@ -106,17 +106,17 @@ class TestFullPipeline:
             for i in range(5):
                 frame_key = f"frame_{i:06d}"
                 assert frame_key in checkpoint
-                assert 'top_matches' in checkpoint[frame_key]
-                assert 'selected' in checkpoint[frame_key]
-                assert len(checkpoint[frame_key]['top_matches']) == 5
+                assert "top_matches" in checkpoint[frame_key]
+                assert "selected" in checkpoint[frame_key]
+                assert len(checkpoint[frame_key]["top_matches"]) == 5
 
             # Verify checkpoint file exists
-            assert (output_folder / 'checkpoint.json').exists()
-            assert (output_folder / 'results.json').exists()
+            assert (output_folder / "checkpoint.json").exists()
+            assert (output_folder / "results.json").exists()
             # FAISS cache files
-            assert (output_folder / 'cache_metadata.json').exists()
-            assert (output_folder / 'faiss_index.bin').exists()
-            assert (output_folder / 'vectors.npy').exists()
+            assert (output_folder / "cache_metadata.json").exists()
+            assert (output_folder / "faiss_index.bin").exists()
+            assert (output_folder / "vectors.npy").exists()
 
     def test_color_similarity_matching(self):
         """Test that similar colors produce higher similarity scores."""
@@ -144,7 +144,7 @@ class TestFullPipeline:
             checkpoint = matcher.process()
 
             # Check first frame (red)
-            frame_0_matches = checkpoint['frame_000000']['top_matches']
+            frame_0_matches = checkpoint["frame_000000"]["top_matches"]
 
             # Red images are img_000 to img_006
             # Check that most top matches are red images
@@ -248,8 +248,8 @@ class TestFullPipeline:
                     top_matches = matcher1.find_top_matches(frame, i, aspect_ratio)
                     selected = matcher1.select_match(top_matches)
                     partial_checkpoint[frame_key] = {
-                        'top_matches': top_matches,
-                        'selected': selected
+                        "top_matches": top_matches,
+                        "selected": selected
                     }
 
             cap.release()
@@ -271,8 +271,8 @@ class TestFullPipeline:
             # First 2 frames should match from resume
             for i in range(2):
                 frame_key = f"frame_{i:06d}"
-                expected = partial_checkpoint[frame_key]['selected']
-                assert checkpoint[frame_key]['selected'] == expected
+                expected = partial_checkpoint[frame_key]["selected"]
+                assert checkpoint[frame_key]["selected"] == expected
 
     def test_no_repeat_mode(self):
         """Test that no-repeat mode tries to avoid reusing images but falls back when necessary."""
@@ -299,8 +299,8 @@ class TestFullPipeline:
             checkpoint = matcher.process()
 
             # Collect all selected images
-            selected_images = [data['selected'] for data in checkpoint.values()
-                             if data['selected'] is not None]
+            selected_images = [data["selected"] for data in checkpoint.values()
+                             if data["selected"] is not None]
 
             # When frames < images, no image should be reused
             assert len(selected_images) == len(set(selected_images)), \
@@ -310,5 +310,5 @@ class TestFullPipeline:
             assert len(selected_images) == 4
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v', '-s'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "-s"])

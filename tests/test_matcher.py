@@ -10,6 +10,13 @@ import pytest
 
 from fluxframe import ImageMatcher, VideoImageMatcher
 
+# Check if ONNX Runtime is available
+try:
+    import onnxruntime  # noqa: F401
+    HAS_ONNX = True
+except ImportError:
+    HAS_ONNX = False
+
 
 class TestImageMatcher:
     """Test the ImageMatcher class for similarity computation."""
@@ -62,9 +69,10 @@ class TestImageMatcher:
         img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
         features = matcher.compute_edge_features(img)
 
-        # Should return 256-bin histogram
-        assert features.shape == (256,)
-        assert np.all(features >= 0) and np.all(features <= 1)
+        # Should return 128-bin histogram (reduced for performance)
+        assert features.shape == (128,)
+        assert np.all(features >= 0)
+        assert np.all(features <= 1)
 
     def test_compute_texture_features_shape(self):
         """Test that texture features have correct shape."""
@@ -73,9 +81,10 @@ class TestImageMatcher:
         img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
         features = matcher.compute_texture_features(img)
 
-        # Should return 64-bin histogram
-        assert features.shape == (64,)
-        assert np.all(features >= 0) and np.all(features <= 1)
+        # Should return 32-bin histogram (reduced for performance)
+        assert features.shape == (32,)
+        assert np.all(features >= 0)
+        assert np.all(features <= 1)
 
     def test_compute_color_features_shape(self):
         """Test that color features have correct shape."""
@@ -84,9 +93,10 @@ class TestImageMatcher:
         img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
         features = matcher.compute_color_features(img)
 
-        # Should return 8*8*8 = 512-bin histogram
-        assert features.shape == (512,)
-        assert np.all(features >= 0) and np.all(features <= 1)
+        # Should return 6*6*6 = 216-bin histogram (reduced for performance)
+        assert features.shape == (216,)
+        assert np.all(features >= 0)
+        assert np.all(features <= 1)
 
     def test_compute_all_features(self):
         """Test that compute_all_features returns all three feature types."""
@@ -95,12 +105,12 @@ class TestImageMatcher:
         img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
         features = matcher.compute_all_features(img)
 
-        assert 'edge' in features
-        assert 'texture' in features
-        assert 'color' in features
-        assert features['edge'].shape == (256,)
-        assert features['texture'].shape == (64,)
-        assert features['color'].shape == (512,)
+        assert "edge" in features
+        assert "texture" in features
+        assert "color" in features
+        assert features["edge"].shape == (128,)
+        assert features["texture"].shape == (32,)
+        assert features["color"].shape == (216,)
 
     def test_similarity_identical_images(self):
         """Test that identical images have maximum similarity."""
@@ -173,14 +183,11 @@ class TestImageMatcher:
         vector = matcher.features_to_vector(features)
 
         # Should be concatenation of weighted features
-        expected_size = 256 + 64 + 512  # edge + texture + color
+        expected_size = 128 + 32 + 216  # edge + texture + color (reduced for performance)
         assert vector.shape == (expected_size,)
         assert vector.dtype == np.float32
 
-    @pytest.mark.skipif(
-        not hasattr(ImageMatcher, "_compute_mobilenet_features"),
-        reason="MobileNet not available"
-    )
+    @pytest.mark.skipif(not HAS_ONNX, reason="ONNX Runtime not installed")
     def test_mobilenet_spatial_pyramid_shape(self):
         """Test that MobileNet with spatial pyramid returns correct shape."""
         try:
@@ -191,7 +198,7 @@ class TestImageMatcher:
         img = np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)
 
         # Mock the ONNX model to avoid needing PyTorch for export
-        import unittest.mock as mock
+        from unittest import mock
 
         # Create fake ONNX output: [1, 48, 14, 14]
         fake_output = np.random.randn(1, 48, 14, 14).astype(np.float32)
@@ -207,10 +214,7 @@ class TestImageMatcher:
         assert features.shape == (192,)
         assert features.dtype == np.float32
 
-    @pytest.mark.skipif(
-        not hasattr(ImageMatcher, "_compute_mobilenet_features"),
-        reason="MobileNet not available"
-    )
+    @pytest.mark.skipif(not HAS_ONNX, reason="ONNX Runtime not installed")
     def test_mobilenet_spatial_pyramid_preserves_layout(self):
         """Test that spatial pyramid pooling preserves spatial layout."""
         try:
@@ -218,7 +222,7 @@ class TestImageMatcher:
         except ImportError:
             pytest.skip("ONNX Runtime not installed")
 
-        import unittest.mock as mock
+        from unittest import mock
 
         # Create features with distinct spatial patterns
         # Top half = high values, bottom half = low values
@@ -335,12 +339,12 @@ class TestVideoImageMatcherInit:
                 str(output_path)
             )
 
-            assert matcher.checkpoint_path == output_path / 'checkpoint.json'
-            assert matcher.results_path == output_path / 'results.json'
+            assert matcher.checkpoint_path == output_path / "checkpoint.json"
+            assert matcher.results_path == output_path / "results.json"
             # FAISS cache files
-            assert matcher.cache_metadata_path == output_path / 'cache_metadata.json'
-            assert matcher.faiss_index_path == output_path / 'faiss_index.bin'
-            assert matcher.vectors_path == output_path / 'vectors.npy'
+            assert matcher.cache_metadata_path == output_path / "cache_metadata.json"
+            assert matcher.faiss_index_path == output_path / "faiss_index.bin"
+            assert matcher.vectors_path == output_path / "vectors.npy"
 
 
 class TestCheckpointing:
@@ -365,9 +369,9 @@ class TestCheckpointing:
             # Create and save checkpoint
             # Note: JSON converts tuples to lists
             checkpoint = {
-                'frame_000000': {
-                    'top_matches': [['img1.jpg', 0.9], ['img2.jpg', 0.8]],
-                    'selected': 'img1.jpg'
+                "frame_000000": {
+                    "top_matches": [["img1.jpg", 0.9], ["img2.jpg", 0.8]],
+                    "selected": "img1.jpg"
                 }
             }
             matcher.save_checkpoint(checkpoint)
@@ -376,8 +380,8 @@ class TestCheckpointing:
             loaded = matcher.load_checkpoint()
 
             assert loaded == checkpoint
-            assert loaded['frame_000000']['selected'] == 'img1.jpg'
-            assert loaded['frame_000000']['top_matches'][0] == ['img1.jpg', 0.9]
+            assert loaded["frame_000000"]["selected"] == "img1.jpg"
+            assert loaded["frame_000000"]["top_matches"][0] == ["img1.jpg", 0.9]
 
     def test_load_nonexistent_checkpoint(self):
         """Test loading checkpoint when none exists returns empty dict."""
@@ -430,15 +434,15 @@ class TestImageSelection:
             matcher._build_faiss_index(matcher.get_image_files())
 
             top_matches = [
-                (str(images_path / 'img1.jpg'), 0.9),
-                (str(images_path / 'img2.jpg'), 0.8),
-                (str(images_path / 'img3.jpg'), 0.7)
+                (str(images_path / "img1.jpg"), 0.9),
+                (str(images_path / "img2.jpg"), 0.8),
+                (str(images_path / "img3.jpg"), 0.7)
             ]
 
             selected = matcher.select_match(top_matches)
 
             # Should be one of the options
-            assert selected in [str(images_path / f'img{i}.jpg') for i in range(1, 4)]
+            assert selected in [str(images_path / f"img{i}.jpg") for i in range(1, 4)]
 
     def test_select_match_with_threshold(self):
         """Test selection respects similarity threshold."""
@@ -468,15 +472,15 @@ class TestImageSelection:
             matcher._build_faiss_index(matcher.get_image_files())
 
             top_matches = [
-                (str(images_path / 'img1.jpg'), 0.9),   # Above threshold
-                (str(images_path / 'img2.jpg'), 0.8),   # Below threshold
-                (str(images_path / 'img3.jpg'), 0.7)    # Below threshold
+                (str(images_path / "img1.jpg"), 0.9),   # Above threshold
+                (str(images_path / "img2.jpg"), 0.8),   # Below threshold
+                (str(images_path / "img3.jpg"), 0.7)    # Below threshold
             ]
 
             selected = matcher.select_match(top_matches)
 
             # Should only select img1
-            assert selected == str(images_path / 'img1.jpg')
+            assert selected == str(images_path / "img1.jpg")
 
     def test_select_match_all_below_threshold(self):
         """Test selection when all matches are below threshold."""
@@ -506,9 +510,9 @@ class TestImageSelection:
             matcher._build_faiss_index(matcher.get_image_files())
 
             top_matches = [
-                (str(images_path / 'img1.jpg'), 0.9),
-                (str(images_path / 'img2.jpg'), 0.8),
-                (str(images_path / 'img3.jpg'), 0.7)
+                (str(images_path / "img1.jpg"), 0.9),
+                (str(images_path / "img2.jpg"), 0.8),
+                (str(images_path / "img3.jpg"), 0.7)
             ]
 
             selected = matcher.select_match(top_matches)
@@ -546,21 +550,21 @@ class TestImageSelection:
             matcher._build_faiss_index(matcher.get_image_files())
 
             top_matches = [
-                (str(images_path / 'img1.jpg'), 0.9),
-                (str(images_path / 'img2.jpg'), 0.8),
-                (str(images_path / 'img3.jpg'), 0.7)
+                (str(images_path / "img1.jpg"), 0.9),
+                (str(images_path / "img2.jpg"), 0.8),
+                (str(images_path / "img3.jpg"), 0.7)
             ]
 
             # With no_repeat mode, always picks the best (first) match
             # Filtering happens in find_top_matches, not in select_match
             selected1 = matcher.select_match(top_matches)
-            assert selected1 == str(images_path / 'img1.jpg')  # Best match
+            assert selected1 == str(images_path / "img1.jpg")  # Best match
 
             # Calling again with same list picks same best match
             # (In real usage, find_top_matches would filter this out)
             selected2 = matcher.select_match(top_matches)
-            assert selected2 == str(images_path / 'img1.jpg')
+            assert selected2 == str(images_path / "img1.jpg")
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

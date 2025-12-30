@@ -429,8 +429,8 @@ class TestIntelligentFallback:
 
             # Extract all selected images
             selected_images = [
-                data['selected'] for data in checkpoint.values()
-                if data.get('selected') is not None
+                data["selected"] for data in checkpoint.values()
+                if data.get("selected") is not None
             ]
 
             # Verify zero duplicates
