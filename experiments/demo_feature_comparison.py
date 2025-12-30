@@ -5,8 +5,7 @@ This script:
 1. Extracts random frames from input video
 2. Runs all feature methods (canny, spatial_pyramid, hog, mobilenet)
 3. Finds top matches for each method
-4. Creates side-by-side comparison images
-5. Outputs performance benchmarks
+4. Creates side-by-side comparison images showing match quality
 
 Usage:
     python demo_feature_comparison.py <video_path> <image_folder> [--output demo_output]
@@ -114,7 +113,7 @@ def create_comparison_image(
         row_images.append(query_labeled)
 
         # Top matches with similarity scores
-        for i, (img_path, img, similarity) in enumerate(matches[method][:max_matches]):
+        for i, (_img_path, img, similarity) in enumerate(matches[method][:max_matches]):
             match_resized = cv2.resize(img, (img_w, img_h))
             match_labeled = np.zeros((img_h + label_h, img_w, 3), dtype=np.uint8)
             match_labeled[label_h:, :] = match_resized
@@ -139,37 +138,6 @@ def create_comparison_image(
     return np.vstack(rows)
 
 
-def benchmark_method(
-    matcher: ImageMatcher,
-    frame: npt.NDArray[Any],
-    num_runs: int = 10,
-) -> tuple[float, npt.NDArray[np.float32]]:
-    """Benchmark feature extraction time for a method.
-
-    Args:
-        matcher: ImageMatcher instance
-        frame: Frame to extract features from
-        num_runs: Number of runs for averaging
-
-    Returns:
-        Tuple of (avg_time_ms, feature_vector)
-    """
-    # Warmup
-    features = matcher.compute_all_features(frame)
-    vector = matcher.features_to_vector(features)
-
-    # Benchmark
-    times = []
-    for _ in range(num_runs):
-        start = time.perf_counter()
-        features = matcher.compute_all_features(frame)
-        vector = matcher.features_to_vector(features)
-        end = time.perf_counter()
-        times.append((end - start) * 1000)  # Convert to ms
-
-    return np.mean(times), vector
-
-
 def main() -> None:
     """Run feature comparison demo."""
     parser = argparse.ArgumentParser(
@@ -187,6 +155,14 @@ def main() -> None:
         "--top-k", type=int, default=3, help="Number of top matches to show"
     )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument(
+        "--force-mobilenet-export", action="store_true",
+        help="Force re-export of MobileNet ONNX model"
+    )
+    parser.add_argument(
+        "--demo-images", type=int, default=None,
+        help="Use only a subset of images (default: use all images)"
+    )
 
     args = parser.parse_args()
 
@@ -203,68 +179,123 @@ def main() -> None:
     frames = extract_random_frames(args.video, args.frames, args.seed)
     print(f"✓ Extracted {len(frames)} frames\n")
 
-    # Define methods to test
-    methods: list[FeatureMethod] = ["canny", "spatial_pyramid", "hog"]
+    # Define configurations to test: (name, feature_method, pooling_method, gem_p, spatial_grid, edge_wt, texture_wt, color_wt)
+    configs: list[tuple[str, str, str, float, int, float, float, float]] = [
+        # Classical methods - test different weight combinations
+        ("canny", "canny", "avg", 3.0, 2, 0.33, 0.33, 0.34),
+        ("canny_edge", "canny", "avg", 3.0, 2, 0.7, 0.15, 0.15),
+        ("spatial_pyr", "spatial_pyramid", "avg", 3.0, 2, 0.33, 0.33, 0.34),
+        ("spatial_pyr_struct", "spatial_pyramid", "avg", 3.0, 2, 0.6, 0.2, 0.2),
+        ("hog", "hog", "avg", 3.0, 2, 0.33, 0.33, 0.34),
+        ("hog_motion", "hog", "avg", 3.0, 2, 0.7, 0.15, 0.15),
+    ]
 
-    # Try to add mobilenet if available
+    # Try to add neural methods if available (neural methods use edge_wt=1.0, texture/color not used)
     try:
-        test_matcher = ImageMatcher(feature_method="mobilenet")
-        methods.append("mobilenet")
+        ImageMatcher(
+            feature_method="mobilenet",
+            force_mobilenet_export=args.force_mobilenet_export
+        )
+        # Add recommended neural configurations
+        configs.extend([
+            ("mobilenet+avg", "mobilenet", "avg", 3.0, 2, 1.0, 0.0, 0.0),
+            ("mobilenet+gem", "mobilenet", "gem", 3.0, 2, 1.0, 0.0, 0.0),
+            ("mobilenet+gem3x3", "mobilenet", "gem", 3.0, 3, 1.0, 0.0, 0.0),
+        ])
         print("✓ MobileNet available\n")
     except ImportError as e:
         print(f"⚠ MobileNet not available: {e}\n")
 
-    # Build FAISS index for each method
-    print("Building FAISS indices for each method...")
+    try:
+        ImageMatcher(
+            feature_method="efficientnet",
+            force_mobilenet_export=args.force_mobilenet_export
+        )
+        # Add EfficientNet configurations
+        configs.extend([
+            ("efficientnet+gem", "efficientnet", "gem", 3.0, 2, 1.0, 0.0, 0.0),
+            ("efficientnet+gem3x3", "efficientnet", "gem", 3.0, 3, 1.0, 0.0, 0.0),
+        ])
+        print("✓ EfficientNet available\n")
+    except ImportError as e:
+        print(f"⚠ EfficientNet not available: {e}\n")
+
+    # Build FAISS index for each configuration
+    print(f"Building FAISS indices for {len(configs)} configurations...")
     print(f"Image folder: {args.images}\n")
 
     indices: dict[str, VideoImageMatcher] = {}
     benchmarks: dict[str, dict[str, Any]] = {}
 
-    for method in tqdm(methods, desc="Building indices"):
-        # Create processor with this method
+    for name, feature_method, pooling_method, gem_p, spatial_grid, edge_wt, texture_wt, color_wt in tqdm(configs, desc="Building indices"):
+        # Create processor with this configuration
+        t_start = time.perf_counter()
         processor = VideoImageMatcher(
             video_path=args.video,
             image_folder=args.images,
-            output_dir=str(output_dir / method),
-            feature_method=method,
+            output_dir=str(output_dir / name),
+            feature_method=feature_method,  # type: ignore
             top_n=args.top_k,
+            edge_weight=edge_wt,
+            texture_weight=texture_wt,
+            color_weight=color_wt,
+            force_mobilenet_export=args.force_mobilenet_export,
+            pooling_method=pooling_method,  # type: ignore
+            gem_p=gem_p,
+            spatial_grid=spatial_grid,
         )
 
         # Build index
         image_files = processor.get_image_files()
-        processor._build_faiss_index(image_files)
 
-        indices[method] = processor
-        benchmarks[method] = {
+        # Use subset if specified
+        if args.demo_images is not None and len(image_files) > args.demo_images:
+            np.random.seed(args.seed)
+            subset_indices = np.random.choice(
+                len(image_files), size=args.demo_images, replace=False
+            )
+            image_files = [image_files[i] for i in sorted(subset_indices)]
+
+        processor._build_faiss_index(image_files)
+        t_build = time.perf_counter() - t_start
+
+        indices[name] = processor
+        benchmarks[name] = {
             "vector_size": processor.faiss_index.d,
             "num_images": len(image_files),
+            "config": f"{feature_method}/{pooling_method}/grid{spatial_grid}",
+            "weights": f"e{edge_wt:.2f}/t{texture_wt:.2f}/c{color_wt:.2f}",
+            "build_time": t_build,
         }
 
     print(f"\n✓ Built {len(indices)} indices\n")
 
     # Process each frame
-    print(f"Processing {len(frames)} frames with {len(methods)} methods...\n")
+    config_names = list(indices.keys())
+    print(f"Processing {len(frames)} frames with {len(config_names)} configurations...\n")
+
+    # Track per-frame matching times
+    match_times: dict[str, list[float]] = {name: [] for name in config_names}
 
     for frame_idx, (frame_num, frame) in enumerate(frames):
         print(f"\n{'─'*80}")
         print(f"Frame {frame_idx + 1}/{len(frames)} (frame #{frame_num})")
         print(f"{'─'*80}\n")
 
-        matches_per_method: dict[str, list[tuple[str, npt.NDArray[Any], float]]] = {}
-        timings: dict[str, float] = {}
+        matches_per_config: dict[str, list[tuple[str, npt.NDArray[Any], float]]] = {}
 
-        # Test each method
-        for method in methods:
-            processor = indices[method]
-            matcher = processor.matcher
+        # Test each configuration
+        for config_name in config_names:
+            processor = indices[config_name]
 
-            # Benchmark feature extraction
-            avg_time, _ = benchmark_method(matcher, frame)
-            timings[method] = avg_time
+            # Find matches (needs frame_num and aspect_ratio)
+            h, w = frame.shape[:2]
+            aspect_ratio = w / h
 
-            # Find matches
-            top_matches = processor.find_top_matches(frame)
+            t_start = time.perf_counter()
+            top_matches = processor.find_top_matches(frame, frame_num, aspect_ratio)
+            t_match = time.perf_counter() - t_start
+            match_times[config_name].append(t_match)
 
             # Load matched images
             matches = []
@@ -273,13 +304,13 @@ def main() -> None:
                 if img is not None:
                     matches.append((img_path, img, similarity))
 
-            matches_per_method[method] = matches
+            matches_per_config[config_name] = matches
 
             # Print results
-            print(f"{method:20s} | Time: {avg_time:6.2f}ms | Top match: {top_matches[0][1]:.3f}")
+            print(f"{config_name:25s} | Top: {top_matches[0][1]:.3f} | {t_match*1000:6.1f}ms")
 
         # Create comparison image
-        comparison = create_comparison_image(frame, matches_per_method, methods, args.top_k)
+        comparison = create_comparison_image(frame, matches_per_config, config_names, args.top_k)
 
         # Save comparison
         output_path = output_dir / f"frame_{frame_num:06d}_comparison.jpg"
@@ -291,23 +322,15 @@ def main() -> None:
     print("Summary Statistics")
     print(f"{'='*80}\n")
 
-    print(f"{'Method':<20} {'Vector Size':<15} {'Avg Time (ms)':<15} {'Images':<10}")
-    print(f"{'-'*70}")
+    print(f"{'Configuration':<25} {'Vec Size':<10} {'Build (s)':<12} {'Match (ms)':<12} {'Weights':<20}")
+    print(f"{'-'*95}")
 
-    for method in methods:
-        vector_size = benchmarks[method]["vector_size"]
-        num_images = benchmarks[method]["num_images"]
-
-        # Calculate average time across all frames
-        avg_times = []
-        for frame_idx, (frame_num, frame) in enumerate(frames):
-            processor = indices[method]
-            avg_time, _ = benchmark_method(processor.matcher, frame, num_runs=3)
-            avg_times.append(avg_time)
-
-        overall_avg = np.mean(avg_times)
-
-        print(f"{method:<20} {vector_size:<15d} {overall_avg:<15.2f} {num_images:<10d}")
+    for config_name in config_names:
+        vector_size = benchmarks[config_name]["vector_size"]
+        build_time = benchmarks[config_name]["build_time"]
+        avg_match_time = np.mean(match_times[config_name]) * 1000  # Convert to ms
+        weights = benchmarks[config_name]["weights"]
+        print(f"{config_name:<25} {vector_size:<10d} {build_time:<12.2f} {avg_match_time:<12.1f} {weights:<20}")
 
     print(f"\n✓ Demo complete! Check output directory: {output_dir}\n")
 

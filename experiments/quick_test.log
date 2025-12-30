@@ -1,0 +1,435 @@
+Creating test set of 100 random images...
+
+Testing 3 input sizes on SAME 100 images
+========================================
+1/3: 224px (current)
+20:08:27 - INFO - Video: /home/birgit/Downloads/Winter Cycling： Vantaa, Finland - 4K 60fps.mp4
+20:08:27 - INFO - Image folder: /tmp/test_images_100
+20:08:27 - INFO - Output directory: test_224px
+20:08:27 - INFO - Search depth: 10
+20:08:27 - INFO - Similarity threshold: 0.0
+20:08:27 - INFO - No repeat: True
+20:08:27 - INFO - Checkpoint batch size: 10
+20:08:27 - INFO - Feature method: mobilenet
+20:08:27 - INFO - Demo mode: ON (max 5s video, 1000 images)
+20:08:27 - INFO - Weights - Edge: 0.33, Texture: 0.33, Color: 0.34
+20:08:28 - INFO - FPS override: 25.0 (input: 59.94, skip interval: 2)
+20:08:28 - INFO - Demo mode: Processing first 5 seconds (299 frames) out of 123084
+20:08:28 - INFO - Scanning image folder...
+20:08:28 - INFO - Sorting 100 image paths...
+20:08:28 - INFO - Found 100 images in folder
+20:08:28 - INFO - Preparing FAISS index...
+20:08:28 - INFO - Cache files not found, will rebuild
+20:08:28 - INFO - Building FAISS index for 100 images...
+20:08:28 - INFO -   Comparison size: 256px
+20:08:28 - INFO -   Using single-process mode (ONNX Runtime handles threading)
+Computing features:   0%|          | 0/100 [00:00<?, ?it/s]Computing features:   9%|▉         | 9/100 [00:00<00:05, 17.36it/s]Computing features:  21%|██        | 21/100 [00:01<00:03, 20.70it/s]Computing features:  33%|███▎      | 33/100 [00:01<00:03, 21.33it/s]Computing features:  46%|████▌     | 46/100 [00:02<00:02, 22.14it/s]Computing features:  59%|█████▉    | 59/100 [00:02<00:01, 22.65it/s]Computing features:  71%|███████   | 71/100 [00:03<00:01, 22.81it/s]Computing features:  84%|████████▍ | 84/100 [00:03<00:00, 23.26it/s]Computing features:  97%|█████████▋| 97/100 [00:04<00:00, 23.46it/s]Computing features: 100%|██████████| 100/100 [00:04<00:00, 23.23it/s]
+20:08:32 - INFO - Built flat FAISS index: 100 images, dimension 24
+20:08:32 - INFO - Saving FAISS cache...
+20:08:32 - INFO - FAISS cache saved successfully
+20:08:32 - INFO - Video aspect ratio: 1.778
+20:08:32 - INFO - Processing 299 frames...
+Matching frames:   0%|          | 0/299 [00:00<?, ?it/s]Matching frames:   7%|▋         | 20/299 [00:00<00:07, 39.50it/s]Matching frames:  16%|█▌        | 48/299 [00:01<00:05, 47.37it/s]Matching frames:  24%|██▍       | 72/299 [00:01<00:04, 46.31it/s]Matching frames:  32%|███▏      | 96/299 [00:02<00:04, 46.02it/s]Matching frames:  40%|████      | 120/299 [00:02<00:03, 46.31it/s]Matching frames:  48%|████▊     | 144/299 [00:03<00:03, 45.55it/s]Matching frames:  56%|█████▌    | 167/299 [00:03<00:02, 45.09it/s]Matching frames:  64%|██████▍   | 191/299 [00:04<00:02, 45.36it/s]20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 200: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 202: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 204: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 206: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 208: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 210: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 212: All images exhausted, selecting randomly
+Matching frames:  72%|███████▏  | 214/299 [00:04<00:01, 45.41it/s]20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 214: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 216: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 218: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 220: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 222: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 224: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 226: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 228: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 230: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 232: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 234: All images exhausted, selecting randomly
+20:08:37 - WARNING - No matches found in search
+20:08:37 - WARNING - Frame 236: All images exhausted, selecting randomly
+Matching frames:  79%|███████▉  | 237/299 [00:05<00:01, 45.25it/s]20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 238: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 240: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 242: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 244: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 246: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 248: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 250: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 252: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 254: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 256: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 258: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 260: All images exhausted, selecting randomly
+Matching frames:  87%|████████▋ | 261/299 [00:05<00:00, 45.45it/s]20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 262: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 264: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 266: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 268: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 270: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 272: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 274: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 276: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 278: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 280: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 282: All images exhausted, selecting randomly
+20:08:38 - WARNING - No matches found in search
+20:08:38 - WARNING - Frame 284: All images exhausted, selecting randomly
+20:08:39 - WARNING - No matches found in search
+20:08:39 - WARNING - Frame 286: All images exhausted, selecting randomly
+Matching frames:  96%|█████████▌| 287/299 [00:06<00:00, 45.84it/s]20:08:39 - WARNING - No matches found in search
+20:08:39 - WARNING - Frame 288: All images exhausted, selecting randomly
+20:08:39 - WARNING - No matches found in search
+20:08:39 - WARNING - Frame 290: All images exhausted, selecting randomly
+20:08:39 - WARNING - No matches found in search
+20:08:39 - WARNING - Frame 292: All images exhausted, selecting randomly
+20:08:39 - WARNING - No matches found in search
+20:08:39 - WARNING - Frame 294: All images exhausted, selecting randomly
+20:08:39 - WARNING - No matches found in search
+20:08:39 - WARNING - Frame 296: All images exhausted, selecting randomly
+20:08:39 - WARNING - No matches found in search
+20:08:39 - WARNING - Frame 298: All images exhausted, selecting randomly
+Matching frames: 100%|██████████| 299/299 [00:06<00:00, 45.46it/s]
+20:08:39 - INFO - Results saved to test_224px/results.json
+20:08:39 - INFO - Verification: All frames have valid selections
+20:08:39 - INFO - Generating output...
+20:08:39 - INFO - Output FPS: 25.0 (input: 59.94)
+Generating output:   0%|          | 0/150 [00:00<?, ?it/s]Generating output:   5%|▌         | 8/150 [00:00<00:09, 15.37it/s]Generating output:  15%|█▍        | 22/150 [00:01<00:06, 21.29it/s]Generating output:  24%|██▍       | 36/150 [00:01<00:04, 23.19it/s]Generating output:  33%|███▎      | 49/150 [00:02<00:04, 23.72it/s]Generating output:  43%|████▎     | 65/150 [00:02<00:03, 25.16it/s]Generating output:  54%|█████▍    | 81/150 [00:03<00:02, 26.14it/s]Generating output:  66%|██████▌   | 99/150 [00:03<00:01, 27.64it/s]Generating output:  77%|███████▋  | 115/150 [00:04<00:01, 28.20it/s]Generating output:  88%|████████▊ | 132/150 [00:04<00:00, 28.91it/s]Generating output:  98%|█████████▊| 147/150 [00:05<00:00, 26.81it/s]Generating output: 100%|██████████| 150/150 [00:05<00:00, 26.25it/s]
+20:08:45 - INFO - Output video saved to: test_224px/Winter Cycling： Vantaa, Finland - 4K 60fps_matched.mp4
+20:08:45 - INFO - Output images saved to: test_224px/matched_frames
+
+Done!
+
+real	0m19,117s
+user	1m41,425s
+sys	0m3,210s
+
+2/3: 128px
+20:08:46 - INFO - Video: /home/birgit/Downloads/Winter Cycling： Vantaa, Finland - 4K 60fps.mp4
+20:08:46 - INFO - Image folder: /tmp/test_images_100
+20:08:46 - INFO - Output directory: test_128px
+20:08:46 - INFO - Search depth: 10
+20:08:46 - INFO - Similarity threshold: 0.0
+20:08:46 - INFO - No repeat: True
+20:08:46 - INFO - Checkpoint batch size: 10
+20:08:46 - INFO - Feature method: mobilenet
+20:08:46 - INFO - Demo mode: ON (max 5s video, 1000 images)
+20:08:46 - INFO - Weights - Edge: 0.33, Texture: 0.33, Color: 0.34
+20:08:47 - INFO - FPS override: 25.0 (input: 59.94, skip interval: 2)
+20:08:47 - INFO - Demo mode: Processing first 5 seconds (299 frames) out of 123084
+20:08:47 - INFO - Scanning image folder...
+20:08:47 - INFO - Sorting 100 image paths...
+20:08:47 - INFO - Found 100 images in folder
+20:08:47 - INFO - Preparing FAISS index...
+20:08:47 - INFO - Cache files not found, will rebuild
+20:08:47 - INFO - Building FAISS index for 100 images...
+20:08:47 - INFO -   Comparison size: 128px
+20:08:47 - INFO -   Using single-process mode (ONNX Runtime handles threading)
+Computing features:   0%|          | 0/100 [00:00<?, ?it/s]Computing features:   5%|▌         | 5/100 [00:00<00:10,  9.24it/s]Computing features:  10%|█         | 10/100 [00:01<00:09,  9.14it/s]Computing features:  17%|█▋        | 17/100 [00:01<00:08, 10.33it/s]Computing features:  24%|██▍       | 24/100 [00:02<00:06, 11.02it/s]Computing features:  30%|███       | 30/100 [00:02<00:06, 10.99it/s]Computing features:  37%|███▋      | 37/100 [00:03<00:05, 11.25it/s]Computing features:  43%|████▎     | 43/100 [00:03<00:05, 11.30it/s]Computing features:  49%|████▉     | 49/100 [00:04<00:04, 11.13it/s]Computing features:  55%|█████▌    | 55/100 [00:04<00:04, 11.17it/s]Computing features:  61%|██████    | 61/100 [00:05<00:03, 11.23it/s]Computing features:  69%|██████▉   | 69/100 [00:06<00:02, 11.62it/s]Computing features:  78%|███████▊  | 78/100 [00:06<00:01, 12.16it/s]Computing features:  86%|████████▌ | 86/100 [00:07<00:01, 12.52it/s]Computing features:  95%|█████████▌| 95/100 [00:07<00:00, 12.96it/s]Computing features: 100%|██████████| 100/100 [00:07<00:00, 12.75it/s]
+20:08:55 - INFO - Built flat FAISS index: 100 images, dimension 24
+20:08:55 - INFO - Saving FAISS cache...
+20:08:55 - INFO - FAISS cache saved successfully
+20:08:55 - INFO - Video aspect ratio: 1.778
+20:08:55 - INFO - Processing 299 frames...
+Matching frames:   0%|          | 0/299 [00:00<?, ?it/s]Matching frames:   5%|▌         | 15/299 [00:00<00:10, 28.34it/s]Matching frames:  14%|█▍        | 43/299 [00:01<00:06, 41.13it/s]Matching frames:  24%|██▎       | 71/299 [00:01<00:05, 44.78it/s]Matching frames:  31%|███▏      | 94/299 [00:02<00:04, 43.13it/s]Matching frames:  39%|███▉      | 116/299 [00:02<00:04, 41.75it/s]Matching frames:  46%|████▌     | 137/299 [00:03<00:03, 40.80it/s]Matching frames:  53%|█████▎    | 159/299 [00:03<00:03, 40.68it/s]Matching frames:  61%|██████    | 183/299 [00:04<00:02, 41.34it/s]20:09:00 - WARNING - No matches found in search
+20:09:00 - WARNING - Frame 200: All images exhausted, selecting randomly
+20:09:00 - WARNING - No matches found in search
+20:09:00 - WARNING - Frame 202: All images exhausted, selecting randomly
+20:09:00 - WARNING - No matches found in search
+20:09:00 - WARNING - Frame 204: All images exhausted, selecting randomly
+Matching frames:  69%|██████▊   | 205/299 [00:04<00:02, 41.45it/s]20:09:00 - WARNING - No matches found in search
+20:09:00 - WARNING - Frame 206: All images exhausted, selecting randomly
+20:09:00 - WARNING - No matches found in search
+20:09:00 - WARNING - Frame 208: All images exhausted, selecting randomly
+20:09:00 - WARNING - No matches found in search
+20:09:00 - WARNING - Frame 210: All images exhausted, selecting randomly
+20:09:00 - WARNING - No matches found in search
+20:09:00 - WARNING - Frame 212: All images exhausted, selecting randomly
+20:09:00 - WARNING - No matches found in search
+20:09:00 - WARNING - Frame 214: All images exhausted, selecting randomly
+20:09:00 - WARNING - No matches found in search
+20:09:00 - WARNING - Frame 216: All images exhausted, selecting randomly
+20:09:00 - WARNING - No matches found in search
+20:09:00 - WARNING - Frame 218: All images exhausted, selecting randomly
+20:09:00 - WARNING - No matches found in search
+20:09:00 - WARNING - Frame 220: All images exhausted, selecting randomly
+20:09:00 - WARNING - No matches found in search
+20:09:00 - WARNING - Frame 222: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 224: All images exhausted, selecting randomly
+Matching frames:  76%|███████▌  | 226/299 [00:05<00:01, 41.46it/s]20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 226: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 228: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 230: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 232: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 234: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 236: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 238: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 240: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 242: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 244: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 246: All images exhausted, selecting randomly
+Matching frames:  83%|████████▎ | 247/299 [00:05<00:01, 41.13it/s]20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 248: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 250: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 252: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 254: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 256: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 258: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 260: All images exhausted, selecting randomly
+20:09:01 - WARNING - No matches found in search
+20:09:01 - WARNING - Frame 262: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 264: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 266: All images exhausted, selecting randomly
+Matching frames:  90%|████████▉ | 268/299 [00:06<00:00, 41.14it/s]20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 268: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 270: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 272: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 274: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 276: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 278: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 280: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 282: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 284: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 286: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 288: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 290: All images exhausted, selecting randomly
+Matching frames:  97%|█████████▋| 291/299 [00:07<00:00, 41.52it/s]20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 292: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 294: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 296: All images exhausted, selecting randomly
+20:09:02 - WARNING - No matches found in search
+20:09:02 - WARNING - Frame 298: All images exhausted, selecting randomly
+Matching frames: 100%|██████████| 299/299 [00:07<00:00, 41.50it/s]
+20:09:02 - INFO - Results saved to test_128px/results.json
+20:09:02 - INFO - Verification: All frames have valid selections
+20:09:02 - INFO - Generating output...
+20:09:03 - INFO - Output FPS: 25.0 (input: 59.94)
+Generating output:   0%|          | 0/150 [00:00<?, ?it/s]Generating output:   7%|▋         | 10/150 [00:00<00:07, 18.97it/s]Generating output:  15%|█▍        | 22/150 [00:01<00:05, 21.41it/s]Generating output:  24%|██▍       | 36/150 [00:01<00:04, 23.44it/s]Generating output:  32%|███▏      | 48/150 [00:02<00:04, 23.05it/s]Generating output:  40%|████      | 60/150 [00:02<00:03, 22.71it/s]Generating output:  49%|████▊     | 73/150 [00:03<00:03, 23.01it/s]Generating output:  57%|█████▋    | 86/150 [00:03<00:02, 23.27it/s]Generating output:  67%|██████▋   | 100/150 [00:04<00:02, 23.73it/s]Generating output:  75%|███████▌  | 113/150 [00:04<00:01, 23.97it/s]Generating output:  84%|████████▍ | 126/150 [00:05<00:01, 23.93it/s]Generating output:  92%|█████████▏| 138/150 [00:05<00:00, 23.83it/s]Generating output: 100%|██████████| 150/150 [00:06<00:00, 23.88it/s]
+20:09:09 - INFO - Output video saved to: test_128px/Winter Cycling： Vantaa, Finland - 4K 60fps_matched.mp4
+20:09:09 - INFO - Output images saved to: test_128px/matched_frames
+
+Done!
+
+real	0m24,140s
+user	1m49,334s
+sys	0m3,140s
+
+3/3: 96px
+20:09:10 - INFO - Video: /home/birgit/Downloads/Winter Cycling： Vantaa, Finland - 4K 60fps.mp4
+20:09:10 - INFO - Image folder: /tmp/test_images_100
+20:09:10 - INFO - Output directory: test_96px
+20:09:10 - INFO - Search depth: 10
+20:09:10 - INFO - Similarity threshold: 0.0
+20:09:10 - INFO - No repeat: True
+20:09:10 - INFO - Checkpoint batch size: 10
+20:09:10 - INFO - Feature method: mobilenet
+20:09:10 - INFO - Demo mode: ON (max 5s video, 1000 images)
+20:09:10 - INFO - Weights - Edge: 0.33, Texture: 0.33, Color: 0.34
+20:09:10 - INFO - FPS override: 25.0 (input: 59.94, skip interval: 2)
+20:09:10 - INFO - Demo mode: Processing first 5 seconds (299 frames) out of 123084
+20:09:10 - INFO - Scanning image folder...
+20:09:10 - INFO - Sorting 100 image paths...
+20:09:10 - INFO - Found 100 images in folder
+20:09:10 - INFO - Preparing FAISS index...
+20:09:10 - INFO - Cache files not found, will rebuild
+20:09:10 - INFO - Building FAISS index for 100 images...
+20:09:10 - INFO -   Comparison size: 96px
+20:09:10 - INFO -   Using single-process mode (ONNX Runtime handles threading)
+Computing features:   0%|          | 0/100 [00:00<?, ?it/s]Computing features:   6%|▌         | 6/100 [00:00<00:08, 10.84it/s]Computing features:  14%|█▍        | 14/100 [00:01<00:06, 12.94it/s]Computing features:  23%|██▎       | 23/100 [00:01<00:05, 13.76it/s]Computing features:  32%|███▏      | 32/100 [00:02<00:04, 14.23it/s]Computing features:  40%|████      | 40/100 [00:02<00:04, 13.79it/s]Computing features:  48%|████▊     | 48/100 [00:03<00:03, 13.94it/s]Computing features:  55%|█████▌    | 55/100 [00:03<00:03, 13.80it/s]Computing features:  64%|██████▍   | 64/100 [00:04<00:02, 14.17it/s]Computing features:  72%|███████▏  | 72/100 [00:05<00:01, 14.34it/s]Computing features:  80%|████████  | 80/100 [00:05<00:01, 14.51it/s]Computing features:  89%|████████▉ | 89/100 [00:06<00:00, 14.69it/s]Computing features:  98%|█████████▊| 98/100 [00:06<00:00, 14.98it/s]Computing features: 100%|██████████| 100/100 [00:06<00:00, 14.88it/s]
+20:09:17 - INFO - Built flat FAISS index: 100 images, dimension 24
+20:09:17 - INFO - Saving FAISS cache...
+20:09:17 - INFO - FAISS cache saved successfully
+20:09:17 - INFO - Video aspect ratio: 1.778
+20:09:17 - INFO - Processing 299 frames...
+Matching frames:   0%|          | 0/299 [00:00<?, ?it/s]Matching frames:   3%|▎         | 9/299 [00:00<00:16, 17.63it/s]Matching frames:  13%|█▎        | 39/299 [00:01<00:06, 38.72it/s]Matching frames:  22%|██▏       | 65/299 [00:01<00:05, 42.82it/s]Matching frames:  31%|███       | 92/299 [00:02<00:04, 45.73it/s]Matching frames:  40%|███▉      | 119/299 [00:02<00:03, 46.62it/s]Matching frames:  48%|████▊     | 143/299 [00:03<00:03, 46.76it/s]Matching frames:  58%|█████▊    | 173/299 [00:03<00:02, 48.52it/s]Matching frames:  66%|██████▌   | 198/299 [00:04<00:02, 47.91it/s]20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 200: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 202: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 204: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 206: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 208: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 210: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 212: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 214: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 216: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 218: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 220: All images exhausted, selecting randomly
+Matching frames:  74%|███████▍  | 222/299 [00:04<00:01, 46.95it/s]20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 222: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 224: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 226: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 228: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 230: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 232: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 234: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 236: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 238: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 240: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 242: All images exhausted, selecting randomly
+20:09:22 - WARNING - No matches found in search
+20:09:22 - WARNING - Frame 244: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 246: All images exhausted, selecting randomly
+Matching frames:  83%|████████▎ | 247/299 [00:05<00:01, 47.17it/s]20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 248: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 250: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 252: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 254: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 256: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 258: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 260: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 262: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 264: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 266: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 268: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 270: All images exhausted, selecting randomly
+Matching frames:  91%|█████████ | 271/299 [00:05<00:00, 47.15it/s]20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 272: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 274: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 276: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 278: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 280: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 282: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 284: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 286: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 288: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 290: All images exhausted, selecting randomly
+20:09:23 - WARNING - No matches found in search
+20:09:23 - WARNING - Frame 292: All images exhausted, selecting randomly
+20:09:24 - WARNING - No matches found in search
+20:09:24 - WARNING - Frame 294: All images exhausted, selecting randomly
+Matching frames:  99%|█████████▊| 295/299 [00:06<00:00, 47.19it/s]20:09:24 - WARNING - No matches found in search
+20:09:24 - WARNING - Frame 296: All images exhausted, selecting randomly
+20:09:24 - WARNING - No matches found in search
+20:09:24 - WARNING - Frame 298: All images exhausted, selecting randomly
+Matching frames: 100%|██████████| 299/299 [00:06<00:00, 46.58it/s]
+20:09:24 - INFO - Results saved to test_96px/results.json
+20:09:24 - INFO - Verification: All frames have valid selections
+20:09:24 - INFO - Generating output...
+20:09:24 - INFO - Output FPS: 25.0 (input: 59.94)
+Generating output:   0%|          | 0/150 [00:00<?, ?it/s]Generating output:   7%|▋         | 11/150 [00:00<00:06, 21.84it/s]Generating output:  15%|█▌        | 23/150 [00:01<00:05, 22.42it/s]Generating output:  23%|██▎       | 35/150 [00:01<00:05, 22.47it/s]Generating output:  31%|███▏      | 47/150 [00:02<00:04, 22.13it/s]Generating output:  39%|███▉      | 59/150 [00:02<00:04, 22.06it/s]Generating output:  47%|████▋     | 71/150 [00:03<00:03, 21.66it/s]Generating output:  55%|█████▌    | 83/150 [00:03<00:03, 21.71it/s]Generating output:  63%|██████▎   | 95/150 [00:04<00:02, 21.96it/s]Generating output:  71%|███████▏  | 107/150 [00:04<00:01, 21.89it/s]Generating output:  79%|███████▊  | 118/150 [00:05<00:01, 21.47it/s]Generating output:  86%|████████▌ | 129/150 [00:06<00:00, 21.09it/s]Generating output:  93%|█████████▎| 140/150 [00:06<00:00, 21.01it/s]Generating output: 100%|██████████| 150/150 [00:07<00:00, 21.19it/s]
+20:09:31 - INFO - Output video saved to: test_96px/Winter Cycling： Vantaa, Finland - 4K 60fps_matched.mp4
+20:09:31 - INFO - Output images saved to: test_96px/matched_frames
+
+Done!
+
+real	0m22,174s
+user	1m50,572s
+sys	0m2,444s
+
+========================================
+Compare samples in:
+  test_224px/comparison_samples/
+  test_128px/comparison_samples/
+  test_96px/comparison_samples/
