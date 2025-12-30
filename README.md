@@ -7,12 +7,12 @@ Optimized for CPU performance with FAISS vector search, memory-mapped indexes, a
 ## Features
 
 - **Multiple feature extraction methods**:
-  - **Canny**: Fast edge histogram (default)
-  - **Spatial Pyramid**: 2×2 or 3×3 grid preserves spatial layout
-  - **HOG**: Histogram of Oriented Gradients for motion preservation
-  - **Spatial Color**: 4×4 grid with dense color histograms (8192D→256D for large datasets)
-  - **MobileNet**: Neural network features (48 channels) for semantic similarity
-  - **EfficientNet**: Powerful neural features (112 channels) for higher quality
+  - **Canny**: Edge detection histogram, ignores where edges appear in frame
+  - **Spatial Pyramid**: Edge histograms split into 2×2 or 3×3 grid cells, remembers top-left vs bottom-right
+  - **HOG**: Gradient directions in overlapping cells, captures motion flow patterns
+  - **Spatial Color**: RGB histograms in 4×4 grid (512 bins/cell), matches color distribution spatially
+  - **MobileNet**: CNN features from final conv layer (1×1×48 after global pooling), semantic object recognition
+  - **EfficientNet**: CNN features from final conv layer (1×1×112 after global pooling), deeper semantic features
 - **Configurable spatial pooling**: Average or GeM (Generalized Mean) pooling for neural methods
 - **Multi-metric similarity**: Combines edge, texture (Sobel), and color (HSV) features
 - **FAISS vector search**: Fast exact search with IndexFlatIP (optional IVF for 16x faster search)
