@@ -8,8 +8,9 @@ Optimized for CPU performance with FAISS vector search, memory-mapped indexes, a
 
 - **Multiple feature extraction methods**:
   - **Canny**: Fast edge histogram (default)
-  - **Spatial Pyramid**: Configurable 2×2 or 3×3 grid preserves spatial layout
-  - **HOG**: Histogram of Oriented Gradients for best motion preservation
+  - **Spatial Pyramid**: 2×2 or 3×3 grid preserves spatial layout
+  - **HOG**: Histogram of Oriented Gradients for motion preservation
+  - **Spatial Color**: 4×4 grid with dense color histograms (8192D→256D for large datasets)
   - **MobileNet**: Neural network features (48 channels) for semantic similarity
   - **EfficientNet**: Powerful neural features (112 channels) for higher quality
 - **Configurable spatial pooling**: Average or GeM (Generalized Mean) pooling for neural methods
@@ -135,7 +136,7 @@ fluxframe input.mp4 /path/to/images ./output \
 - `output`: Output directory
 
 **Optional:**
-- `--feature-method`: `canny` (fast), `spatial_pyramid` (balanced), `hog` (best motion), `mobilenet` (neural), `efficientnet` (neural, higher quality) (default: canny)
+- `--feature-method`: `canny` (fast), `spatial_pyramid` (balanced), `hog` (best motion), `spatial_color` (high quality, large datasets), `mobilenet` (neural), `efficientnet` (neural, higher quality) (default: canny)
 - `--pooling-method`: `avg` (average pooling, fast), `gem` (Generalized Mean pooling, better quality for neural methods) (default: avg)
 - `--gem-p`: GeM pooling power parameter (1=avg, 3-4=optimal, ∞=max) (default: 3.0)
 - `--spatial-grid`: Spatial pyramid grid size for neural methods (2=2×2, 3=3×3) (default: 2)
@@ -169,15 +170,18 @@ fluxframe input.mp4 /path/to/images ./output \
 | `canny` | ⭐⭐⭐⭐⭐ | ⭐⭐ | 832D | ❌ None | — |
 | `spatial_pyramid` | ⭐⭐⭐⭐ | ⭐⭐⭐ | 1088D (2×2)<br>2448D (3×3) | ✅ Grid | `--spatial-grid` |
 | `hog` | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 1332D* | ✅ Cells | — |
+| `spatial_color` | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 256D (8192D→256D)** | ✅ 4×4 Grid | — |
 | `mobilenet` | ⭐⭐⭐ | ⭐⭐⭐⭐ | 192D (2×2+avg)<br>432D (3×3+avg)<br>192D (2×2+gem)<br>432D (3×3+gem) | ✅ Grid | `--pooling-method`<br>`--gem-p`<br>`--spatial-grid` |
 | `efficientnet` | ⭐⭐ | ⭐⭐⭐⭐⭐ | 448D (2×2+avg)<br>1008D (3×3+avg)<br>448D (2×2+gem)<br>1008D (3×3+gem) | ✅ Grid | `--pooling-method`<br>`--gem-p`<br>`--spatial-grid` |
 
 *HOG dimensions vary with `--comparison-size` (684D at 128px, 1332D at 256px, 4896D at 512px)
+**Spatial Color: 4×4 grid × 512 color bins = 8192D, auto-reduced to 256D via random projection
 
 **Recommended configurations:**
 - **Fast preview**: `canny` (default)
 - **Balanced quality**: `spatial_pyramid --spatial-grid 2`
 - **Best motion**: `hog`
+- **Large datasets**: `spatial_color` (4×4 color grid, auto-reduces to 256D)
 - **Neural fast**: `mobilenet --pooling-method gem --spatial-grid 2`
 - **Neural best**: `efficientnet --pooling-method gem --spatial-grid 3 --gem-p 3.0`
 
@@ -259,6 +263,7 @@ output_dir/
 ├── cache_metadata.json      # FAISS cache params
 ├── faiss_index.bin          # FAISS index
 ├── vectors.npy              # Feature vectors
+├── dim_reducer.pkl          # Dimensionality reducer (spatial_color only)
 ├── <video>_matched.mp4      # Output video
 ├── matched_frames/          # Individual frames
 │   ├── frame_000000.jpg
@@ -302,6 +307,7 @@ output_dir/
 - Canny (376D, optimized): 500K images = ~752MB
 - Spatial Pyramid 2×2 (1088D): 500K images = ~2.1GB
 - Spatial Pyramid 3×3 (2448D): 500K images = ~4.7GB
+- Spatial Color (256D, reduced): 500K images = ~512MB (mini-batch: 170MB peak)
 - MobileNet 2×2 (192D): 500K images = ~384MB
 - MobileNet 3×3 (432D): 500K images = ~864MB
 - EfficientNet 2×2 (448D): 500K images = ~896MB

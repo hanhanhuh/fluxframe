@@ -489,17 +489,16 @@ class ImageMatcher:
         return features
 
     def _compute_spatial_color_features(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:
-        """Compute spatial color histogram features.
+        """Compute spatial color features with 4×4 grid.
 
-        Divides image into 4x4 grid and computes color histogram for each cell.
-        Captures color distribution while preserving spatial layout.
-        Content-independent aesthetic matching.
+        Divides image into 4×4 grid, computing dense RGB histogram (8×8×8 bins) per cell.
+        Output: 16 cells × 512 bins = 8192D. Auto-reduced to 256D for large datasets.
 
         Args:
             img: Input image (BGR).
 
         Returns:
-            Concatenated color histograms from all grid cells (16 cells * 512 bins = 8192 values).
+            Feature vector (8192D, or 256D if dimensionality reduction enabled).
         """
         grid_size = 4  # 4x4 grid
         bins = 8  # 8x8x8 = 512 bins per cell
@@ -537,7 +536,7 @@ class ImageMatcher:
         return features
 
     def fit_reducer(self, features_batch: npt.NDArray[np.float32]) -> None:
-        """Fit dimensionality reducer on spatial_color features (instant with random projection)."""
+        """Fit random projection for dimensionality reduction (8192D→256D)."""
         if self.dim_reducer is None:
             self.dim_reducer = GaussianRandomProjection(
                 n_components=self.reduced_dims,
@@ -547,7 +546,7 @@ class ImageMatcher:
             self.dim_reducer.fit(features_batch)
 
     def transform_features(self, features: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
-        """Apply dimensionality reduction if enabled and fitted."""
+        """Apply dimensionality reduction (8192D→256D) if enabled."""
         if not self.reduce_spatial_color or self.dim_reducer is None:
             return features
 
