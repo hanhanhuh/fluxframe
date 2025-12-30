@@ -62,11 +62,28 @@ def main() -> None:
     parser.add_argument("--fps-override", type=float, default=None,
                        help="Override output video FPS (default: use input video FPS)")
     parser.add_argument("--feature-method", type=str, default="canny",
-                       choices=["canny", "spatial_pyramid", "hog"],
+                       choices=["canny", "spatial_pyramid", "hog", "mobilenet", "efficientnet", "spatial_color"],
                        help="Edge/structure feature extraction method. "
-                            "canny=fast/no spatial info (original), "
+                            "canny=fast/no spatial info, "
                             "spatial_pyramid=medium/preserves layout, "
-                            "hog=slower/best motion preservation")
+                            "hog=slower/best motion preservation, "
+                            "mobilenet=neural (48ch), efficientnet=neural (112ch), "
+                            "spatial_color=ultra-fast content-independent aesthetic matching (8192d)")
+    parser.add_argument("--pooling-method", type=str, default="avg",
+                       choices=["avg", "gem"],
+                       help="Spatial pooling for neural methods. "
+                            "avg=average (fast), gem=generalized mean (better)")
+    parser.add_argument("--gem-p", type=float, default=3.0,
+                       help="GeM pooling power parameter (p=1 is avg, p=∞ is max). Default: 3.0")
+    parser.add_argument("--spatial-grid", type=int, default=2,
+                       choices=[2, 3],
+                       help="Spatial pyramid grid size for neural methods "
+                            "(2=2x2, 3=3x3). Default: 2")
+    parser.add_argument("--use-global-pooling", action="store_true",
+                       help="Use global pooling (1x1) for 5x faster neural inference. "
+                            "Sacrifices spatial information for speed.")
+    parser.add_argument("--force-mobilenet-export", action="store_true",
+                       help="Force re-export of ONNX models (regenerates cached models)")
     parser.add_argument("--save-samples", type=int, default=0,
                        help="Number of frame-match comparison samples to save (0=disabled)")
     parser.add_argument("--sample-interval", type=int, default=1,
@@ -104,7 +121,12 @@ def main() -> None:
         fps_override=args.fps_override,
         save_samples=args.save_samples,
         sample_interval=args.sample_interval,
-        feature_method=args.feature_method
+        feature_method=args.feature_method,
+        force_mobilenet_export=args.force_mobilenet_export,
+        pooling_method=args.pooling_method,
+        gem_p=args.gem_p,
+        spatial_grid=args.spatial_grid,
+        use_global_pooling=args.use_global_pooling,
     )
 
     # Process frames and find matches
