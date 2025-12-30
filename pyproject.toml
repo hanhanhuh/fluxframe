@@ -13,6 +13,7 @@ dependencies = [
     "scikit-image>=0.19.0",
     "faiss-cpu>=1.7.0",
     "onnxruntime>=1.16.0",
+    "scikit-learn>=1.7.2",
 ]
 
 [project.optional-dependencies]
@@ -73,6 +74,13 @@ select = [
 ]
 ignore = [
     "ISC001", # conflicts with formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "PLR2004",  # Magic value comparisons are acceptable in tests
+    "PLC0415",  # Imports in test functions are acceptable
+    "ISC002",   # Multi-line string concatenation is acceptable in tests
 ]
 
 [tool.mypy]
