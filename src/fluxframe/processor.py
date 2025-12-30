@@ -213,7 +213,7 @@ class VideoImageMatcher:
         self.cache_metadata_path = self.output_dir / "cache_metadata.json"
         self.faiss_index_path = self.output_dir / "faiss_index.bin"
         self.vectors_path = self.output_dir / "vectors.npy"
-        self.pca_reducer_path = self.output_dir / "pca_reducer.pkl"
+        self.dim_reducer_path = self.output_dir / "dim_reducer.pkl"
 
         self.used_images: set[str] = set()
         self.results: dict[str, Any] = {}
@@ -304,11 +304,11 @@ class VideoImageMatcher:
                 self.vectors = np.load(self.vectors_path)
                 self.feature_dim = self.vectors.shape[1]
 
-                # Load PCA model if it exists
-                if self.pca_reducer_path.exists():
-                    with self.pca_reducer_path.open("rb") as f:
-                        self.matcher.pca_reducer = pickle.load(f)
-                    logger.info(f"Loaded PCA reducer ({self.matcher.reduced_dims}D)")
+                # Load dimensionality reducer if it exists
+                if self.dim_reducer_path.exists():
+                    with self.dim_reducer_path.open("rb") as f:
+                        self.matcher.dim_reducer = pickle.load(f)
+                    logger.info(f"Loaded dimensionality reducer ({self.matcher.reduced_dims}D)")
 
                 self.faiss_index = faiss.read_index(
                     str(self.faiss_index_path),
@@ -342,20 +342,20 @@ class VideoImageMatcher:
             use_global_pooling=self.matcher.use_global_pooling,
         )
 
-        # Zero-disk PCA approach for spatial_color
+        # Zero-disk random projection approach for spatial_color
         if self.matcher.reduce_spatial_color and self.matcher.feature_method == "spatial_color":
-            logger.info("Using zero-disk PCA mode for spatial_color (no temp files!)")
+            logger.info("Using zero-disk random projection for spatial_color (instant dimensionality reduction!)")
 
             # Randomize image order for representative sampling
             shuffled_files = image_files.copy()
             random.shuffle(shuffled_files)
 
-            # Determine PCA fit size
-            pca_fit_size = min(50000, len(shuffled_files))
-            logger.info(f"Phase 1/2: Fitting PCA on {pca_fit_size} random images...")
+            # Determine random projection fit size (just needs dimensionality, not training)
+            fit_size = min(1000, len(shuffled_files))  # Only need 1k samples for dimensionality
+            logger.info(f"Phase 1/2: Fitting random projection on {fit_size} images (instant)...")
 
-            # Phase 1: Extract subset and fit PCA
-            subset_files = shuffled_files[:pca_fit_size]
+            # Phase 1: Extract small subset to fit random projection
+            subset_files = shuffled_files[:fit_size]
 
             if self.matcher.feature_method in ("mobilenet", "efficientnet"):
                 logger.info("  Using single-process mode (ONNX Runtime handles threading)")
@@ -372,7 +372,7 @@ class VideoImageMatcher:
 
             fit_features = []
 
-            for result in tqdm(fit_iterator, total=len(subset_files), desc="Extracting for PCA fit", smoothing=0.05):
+            for result in tqdm(fit_iterator, total=len(subset_files), desc="Extracting for RP fit", smoothing=0.05):
                 if result is not None:
                     _, features = result
                     fit_features.append(features)
@@ -381,16 +381,13 @@ class VideoImageMatcher:
                 pool_fit.close()
                 pool_fit.join()
 
-            # Fit PCA in batches
+            # Fit dimensionality reducer (instant - just sets up random matrix)
             fit_array = np.array(fit_features, dtype=np.float32)
-            batch_size = 5000
-            logger.info(f"Fitting PCA on {len(fit_array)} samples...")
-            for i in range(0, len(fit_array), batch_size):
-                batch = fit_array[i:i+batch_size]
-                self.matcher.fit_pca(batch)
+            logger.info(f"Fitting random projection on {len(fit_array)} samples (instant)...")
+            self.matcher.fit_reducer(fit_array)  # Single call, no batch loop needed
 
             del fit_features, fit_array  # Free memory
-            logger.info("PCA fitted")
+            logger.info("Random projection fitted")
 
             # Phase 2: Extract all features and transform on-the-fly
             logger.info("Phase 2/2: Extracting and transforming all features...")
@@ -418,11 +415,11 @@ class VideoImageMatcher:
 
             vectors = np.array(feature_vectors, dtype=np.float32)
 
-            # Save PCA model to cache
-            with self.pca_reducer_path.open("wb") as f:
-                pickle.dump(self.matcher.pca_reducer, f)
+            # Save dimensionality reducer to cache
+            with self.dim_reducer_path.open("wb") as f:
+                pickle.dump(self.matcher.dim_reducer, f)
 
-            logger.info(f"PCA reduction complete: {vectors.shape[1]}D vectors")
+            logger.info(f"Random projection reduction complete: {vectors.shape[1]}D vectors")
 
             self.vectors = vectors
             self.image_paths = valid_paths

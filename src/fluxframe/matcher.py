@@ -6,7 +6,7 @@ from typing import Any, Literal, TypedDict
 import cv2
 import numpy as np
 import numpy.typing as npt
-from sklearn.decomposition import IncrementalPCA
+from sklearn.random_projection import GaussianRandomProjection
 
 try:
     from skimage.feature import hog
@@ -142,7 +142,7 @@ class ImageMatcher:
         self.use_global_pooling = use_global_pooling
         self.reduce_spatial_color = reduce_spatial_color
         self.reduced_dims = reduced_dims
-        self.pca_reducer = None
+        self.dim_reducer = None
 
         # Normalize weights (only used for non-neural methods)
         total = edge_weight + texture_weight + color_weight
@@ -536,25 +536,26 @@ class ImageMatcher:
 
         return features
 
-    def fit_pca(self, features_batch: npt.NDArray[np.float32]) -> None:
-        """Incrementally fit PCA on spatial_color features."""
-        if self.pca_reducer is None:
-            self.pca_reducer = IncrementalPCA(
+    def fit_reducer(self, features_batch: npt.NDArray[np.float32]) -> None:
+        """Fit dimensionality reducer on spatial_color features (instant with random projection)."""
+        if self.dim_reducer is None:
+            self.dim_reducer = GaussianRandomProjection(
                 n_components=self.reduced_dims,
-                batch_size=min(100, len(features_batch))
+                random_state=42  # Reproducible results
             )
-        self.pca_reducer.partial_fit(features_batch)
+            # Fit immediately on first batch (random projection needs no actual training)
+            self.dim_reducer.fit(features_batch)
 
     def transform_features(self, features: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
-        """Apply PCA reduction if enabled and fitted."""
-        if not self.reduce_spatial_color or self.pca_reducer is None:
+        """Apply dimensionality reduction if enabled and fitted."""
+        if not self.reduce_spatial_color or self.dim_reducer is None:
             return features
 
         is_single = features.ndim == 1
         if is_single:
             features = features.reshape(1, -1)
 
-        reduced = self.pca_reducer.transform(features).astype(np.float32)
+        reduced = self.dim_reducer.transform(features).astype(np.float32)
         return reduced.flatten() if is_single else reduced
 
     def _compute_hog_features(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:
