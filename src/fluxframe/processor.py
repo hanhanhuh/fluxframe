@@ -154,10 +154,12 @@ class VideoImageMatcher:
             seed: Random seed for reproducibility
             num_workers: Number of parallel workers (deprecated, kept for compatibility)
             fps_override: Override video FPS for output generation (None = use video FPS)
-            feature_method: Edge/structure feature extraction method
-                - "canny": Fast, no spatial info (original)
-                - "spatial_pyramid": 4x4 grid, preserves layout
-                - "hog": Best motion preservation
+            feature_method: Feature extraction method
+                - "canny": Fast edge histogram
+                - "spatial_pyramid": Spatial layout (2×2 or 3×3)
+                - "hog": Motion preservation
+                - "spatial_color": 4×4 color grid (8192D→256D)
+                - "mobilenet"/"efficientnet": Neural features
             save_samples: Number of comparison samples to save (0 = disabled)
             sample_interval: Save every Nth frame as sample (1 = every frame)
             use_ivf_index: Use IndexIVFFlat for 16x faster search (default: True)
