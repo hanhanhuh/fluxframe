@@ -70,3 +70,4 @@ open_images_meta/
 # Keep example files
 !examples/**
 !docs/**
+uv.lock
