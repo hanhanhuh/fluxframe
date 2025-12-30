@@ -1,0 +1,37 @@
+22:27:04 - INFO - Video: /home/birgit/Downloads/Winter Cycling： Vantaa, Finland - 4K 60fps.mp4
+22:27:04 - INFO - Image folder: /home/birgit/fiftyone/open-images-v7/train/data
+22:27:04 - INFO - Output directory: output_spatial_color_full
+22:27:04 - INFO - Search depth: 10
+22:27:04 - INFO - Similarity threshold: 0.0
+22:27:04 - INFO - No repeat: True
+22:27:04 - INFO - Checkpoint batch size: 10
+22:27:04 - INFO - Feature method: spatial_color
+22:27:04 - INFO - Demo mode: ON (max 10s video, 1000 images)
+22:27:04 - INFO - Weights - Edge: 0.33, Texture: 0.33, Color: 0.34
+22:27:04 - INFO - FPS override: 25.0 (input: 59.94, skip interval: 2)
+22:27:04 - INFO - Demo mode: Processing first 10 seconds (599 frames) out of 123084
+22:27:04 - INFO - Scanning image folder...
+22:27:18 - INFO - Sorting 467000 image paths...
+22:27:27 - INFO - Demo mode: Using first 1000 images out of 467000
+22:27:29 - INFO - Found 1000 images in folder
+22:27:29 - INFO - Preparing FAISS index...
+22:27:29 - INFO - Cache files not found, will rebuild
+22:27:29 - INFO - Building FAISS index for 1000 images...
+22:27:29 - INFO -   Comparison size: 256px
+22:27:29 - INFO -   Using 11 parallel workers for feature extraction
+Computing features:   0%|          | 0/1000 [00:00<?, ?it/s]Computing features:   0%|          | 1/1000 [00:01<21:07,  1.27s/it]Computing features:  30%|███       | 301/1000 [00:01<00:04, 168.18it/s]Computing features:  55%|█████▌    | 551/1000 [00:02<00:02, 194.61it/s]Computing features: 100%|██████████| 1000/1000 [00:03<00:00, 308.30it/s]
+22:27:32 - INFO - Built flat FAISS index: 1000 images, dimension 8192
+22:27:32 - INFO - Saving FAISS cache...
+22:27:33 - INFO - FAISS cache saved successfully
+22:27:33 - INFO - Video aspect ratio: 1.778
+22:27:33 - INFO - Processing 599 frames...
+Matching frames:   0%|          | 0/599 [00:00<?, ?it/s]Matching frames:  10%|▉         | 59/599 [00:00<00:04, 117.14it/s]Matching frames:  23%|██▎       | 139/599 [00:01<00:03, 138.59it/s]Matching frames:  35%|███▍      | 209/599 [00:01<00:02, 131.05it/s]Matching frames:  47%|████▋     | 279/599 [00:02<00:02, 132.58it/s]Matching frames:  58%|█████▊    | 346/599 [00:02<00:01, 132.81it/s]Matching frames:  69%|██████▉   | 413/599 [00:03<00:01, 130.82it/s]Matching frames:  84%|████████▍ | 503/599 [00:03<00:00, 138.60it/s]Matching frames:  97%|█████████▋| 579/599 [00:04<00:00, 139.22it/s]Matching frames: 100%|██████████| 599/599 [00:04<00:00, 137.90it/s]
+22:27:37 - INFO - Results saved to output_spatial_color_full/results.json
+22:27:37 - INFO - Verification: All frames have valid selections
+22:27:37 - INFO - Generating output...
+22:27:37 - INFO - Output FPS: 25.0 (input: 59.94)
+Generating output:   0%|          | 0/300 [00:00<?, ?it/s]Generating output:   4%|▍         | 12/300 [00:00<00:12, 23.53it/s]Generating output:   8%|▊         | 25/300 [00:01<00:11, 24.58it/s]Generating output:  13%|█▎        | 38/300 [00:01<00:11, 23.80it/s]Generating output:  17%|█▋        | 50/300 [00:02<00:12, 20.25it/s]Generating output:  20%|██        | 61/300 [00:03<00:12, 18.40it/s]Generating output:  24%|██▎       | 71/300 [00:04<00:13, 17.19it/s]Generating output:  27%|██▋       | 81/300 [00:04<00:12, 16.94it/s]Generating output:  30%|███       | 90/300 [00:05<00:12, 17.03it/s]Generating output:  33%|███▎      | 100/300 [00:05<00:11, 17.22it/s]Generating output:  36%|███▋      | 109/300 [00:06<00:11, 16.50it/s]Generating output:  39%|███▉      | 118/300 [00:07<00:11, 16.36it/s]Generating output:  43%|████▎     | 128/300 [00:07<00:10, 16.50it/s]Generating output:  46%|████▌     | 138/300 [00:08<00:09, 16.66it/s]Generating output:  50%|█████     | 151/300 [00:08<00:08, 17.37it/s]Generating output:  54%|█████▎    | 161/300 [00:09<00:07, 17.40it/s]Generating output:  57%|█████▋    | 170/300 [00:09<00:07, 16.96it/s]Generating output:  61%|██████    | 182/300 [00:10<00:06, 17.38it/s]Generating output:  67%|██████▋   | 201/300 [00:10<00:05, 18.78it/s]Generating output:  73%|███████▎  | 220/300 [00:11<00:03, 20.02it/s]Generating output:  80%|███████▉  | 239/300 [00:12<00:02, 21.18it/s]Generating output:  86%|████████▌ | 258/300 [00:12<00:01, 22.23it/s]Generating output:  92%|█████████▏| 276/300 [00:13<00:01, 23.11it/s]Generating output:  98%|█████████▊| 294/300 [00:13<00:00, 23.92it/s]Generating output: 100%|██████████| 300/300 [00:13<00:00, 21.90it/s]
+22:27:51 - INFO - Output video saved to: output_spatial_color_full/Winter Cycling： Vantaa, Finland - 4K 60fps_matched.mp4
+22:27:51 - INFO - Output images saved to: output_spatial_color_full/matched_frames
+
+Done!
