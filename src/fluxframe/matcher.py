@@ -1,6 +1,5 @@
 """Image similarity matching using multiple metrics (color, edges, texture)."""
 
-
 from typing import Any, Literal, TypedDict
 
 import cv2
@@ -10,12 +9,14 @@ from sklearn.random_projection import GaussianRandomProjection
 
 try:
     from skimage.feature import hog
+
     HAS_SKIMAGE = True
 except ImportError:
     HAS_SKIMAGE = False
 
 try:
     import onnxruntime as ort
+
     HAS_ONNX = True
 except ImportError:
     HAS_ONNX = False
@@ -25,7 +26,9 @@ _COLOR_CHANNELS = 3
 _GRAYSCALE_CHANNELS = 2
 _ASPECT_RATIO_TOLERANCE = 0.01
 
-FeatureMethod = Literal["canny", "hog", "spatial_pyramid", "mobilenet", "efficientnet", "spatial_color"]
+FeatureMethod = Literal[
+    "canny", "hog", "spatial_pyramid", "mobilenet", "efficientnet", "spatial_color", "gist"
+]
 PoolingMethod = Literal["avg", "gem"]
 
 
@@ -35,6 +38,7 @@ class ClassicalFeatures(TypedDict):
     Contains separate histograms for edge, texture, and color features.
     Used by: canny, hog, spatial_pyramid methods.
     """
+
     edge: npt.NDArray[np.float32]
     texture: npt.NDArray[np.float32]
     color: npt.NDArray[np.float32]
@@ -46,6 +50,7 @@ class NeuralFeatures(TypedDict):
     Contains only edge features (neural networks encode all information in one vector).
     Used by: mobilenet method.
     """
+
     edge: npt.NDArray[np.float32]
 
 
@@ -104,7 +109,9 @@ class ImageMatcher:
         gem_p: float = 3.0,
         spatial_grid: int = 2,
         use_global_pooling: bool = False,
-        reduce_spatial_color: bool = True, reduced_dims: int = 256
+        reduce_spatial_color: bool = False,  # Disabled by default with [1,3] scales (1600D fits in memory)
+        reduced_dims: int = 512,
+        spatial_color_scales: list[int] | None = None,
     ):
         """Initialize matcher with metric weights.
 
@@ -126,6 +133,11 @@ class ImageMatcher:
             spatial_grid: Grid size for spatial pyramid (2=2x2, 3=3x3). Default 2.
             use_global_pooling: Use global pooling (1x1 grid) for 5x faster inference.
                 Sacrifices spatial information for speed. Default False.
+            spatial_color_scales: List of grid scales for spatial_color method.
+                Default [1, 3, 5] creates 35 cells (1+9+25). Examples:
+                - [1, 2, 4]: 21 cells (1+4+16), faster, less detail
+                - [1, 3, 5, 7]: 84 cells (1+9+25+49), slower, more detail
+                - [4]: 16 cells (4x4 grid), like old implementation
 
         Note:
             Weights are automatically normalized to sum to 1.0 regardless of input values.
@@ -142,6 +154,9 @@ class ImageMatcher:
         self.use_global_pooling = use_global_pooling
         self.reduce_spatial_color = reduce_spatial_color
         self.reduced_dims = reduced_dims
+        # Default to [1, 3] for memory efficiency (1600D vs 5600D with [1,3,5])
+        # This avoids need for dimensionality reduction while preserving discrimination
+        self.spatial_color_scales = spatial_color_scales if spatial_color_scales else [1, 3]
         self.dim_reducer = None
 
         # Normalize weights (only used for non-neural methods)
@@ -183,6 +198,7 @@ class ImageMatcher:
         # For now, we'll export from PyTorch on-the-fly (requires torch temporarily)
         # TODO: Host pre-exported ONNX model online for direct download
         import pathlib  # noqa: PLC0415
+
         cache_dir = pathlib.Path.home() / ".cache" / "fluxframe"
         cache_dir.mkdir(parents=True, exist_ok=True)
         onnx_path = cache_dir / "mobilenetv3_small_block4.onnx"
@@ -206,9 +222,7 @@ class ImageMatcher:
                 raise ImportError(msg) from e
 
             # Load and truncate model
-            model = models.mobilenet_v3_small(
-                weights=models.MobileNet_V3_Small_Weights.DEFAULT
-            )
+            model = models.mobilenet_v3_small(weights=models.MobileNet_V3_Small_Weights.DEFAULT)
             model.eval()
             truncated = torch.nn.Sequential(*list(model.features[:4]))
 
@@ -258,9 +272,7 @@ class ImageMatcher:
         sess_options.inter_op_num_threads = 1  # Sequential execution for small models
 
         model = ort.InferenceSession(
-            str(onnx_path),
-            sess_options,
-            providers=["CPUExecutionProvider"]
+            str(onnx_path), sess_options, providers=["CPUExecutionProvider"]
         )
 
         # Store model and input/output names
@@ -285,6 +297,7 @@ class ImageMatcher:
 
         # ONNX model will be downloaded/cached here
         import pathlib  # noqa: PLC0415
+
         cache_dir = pathlib.Path.home() / ".cache" / "fluxframe"
         cache_dir.mkdir(parents=True, exist_ok=True)
         onnx_path = cache_dir / "efficientnet_b0_block4.onnx"
@@ -308,9 +321,7 @@ class ImageMatcher:
                 raise ImportError(msg) from e
 
             # Load and truncate model at block 4 (112 channels @ 14x14)
-            model = models.efficientnet_b0(
-                weights=models.EfficientNet_B0_Weights.DEFAULT
-            )
+            model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT)
             model.eval()
             truncated = torch.nn.Sequential(*list(model.features[:5]))  # Through block 4
 
@@ -351,9 +362,7 @@ class ImageMatcher:
         sess_options.inter_op_num_threads = 1
 
         model = ort.InferenceSession(
-            str(onnx_path),
-            sess_options,
-            providers=["CPUExecutionProvider"]
+            str(onnx_path), sess_options, providers=["CPUExecutionProvider"]
         )
 
         # Store model and input/output names
@@ -381,11 +390,11 @@ class ImageMatcher:
             # Image is too wide, crop width
             new_w = int(h * target_ratio)
             start_x = (w - new_w) // 2
-            return img[:, start_x:start_x + new_w]
+            return img[:, start_x : start_x + new_w]
         # Image is too tall, crop height
         new_h = int(w / target_ratio)
         start_y = (h - new_h) // 2
-        return img[start_y:start_y + new_h, :]
+        return img[start_y : start_y + new_h, :]
 
     def _ensure_grayscale(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Convert image to grayscale if needed.
@@ -444,6 +453,53 @@ class ImageMatcher:
 
         return hist
 
+    def _compute_gist_features(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:
+        """Compute GIST-like global scene descriptor using Gabor filters.
+        
+        Captures texture gradients and spatial layout (e.g., open vs. closed scenes).
+        """
+        gray = self._ensure_grayscale(img)
+        # Resize to 128x128 for consistent frequency response
+        img_std = cv2.resize(gray, (128, 128), interpolation=cv2.INTER_AREA).astype(np.float32)
+
+        # GIST Parameters: 3 scales, 8 orientations, 4x4 grid
+        scales = [1, 3, 5]
+        orientations = 8
+        grid_size = 4
+
+        features = []
+        h, w = img_std.shape
+        cell_h, cell_w = h // grid_size, w // grid_size
+
+        for scale in scales:
+            sigma = scale * 2.0
+            ksize = 31
+            for theta_idx in range(orientations):
+                theta = theta_idx * np.pi / orientations
+                # Create Gabor kernel
+                kernel = cv2.getGaborKernel(
+                    (ksize, ksize), sigma, theta, 10.0, 0.5, 0, ktype=cv2.CV_32F
+                )
+
+                # Filter image
+                f_img = cv2.filter2D(img_std, cv2.CV_32F, kernel)
+                np.abs(f_img, out=f_img) # Get energy
+
+                # 4x4 Spatial Pooling
+                for r in range(grid_size):
+                    for c in range(grid_size):
+                        cell = f_img[r*cell_h:(r+1)*cell_h, c*cell_w:(c+1)*cell_w]
+                        features.append(np.mean(cell))
+
+        feat_vec = np.array(features, dtype=np.float32)
+
+        # Normalize
+        norm = np.linalg.norm(feat_vec)
+        if norm > 0:
+            feat_vec /= norm
+
+        return feat_vec
+
     def _compute_spatial_pyramid_features(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Compute spatial pyramid of Canny edge histograms.
 
@@ -469,7 +525,7 @@ class ImageMatcher:
         for i in range(grid_size):
             for j in range(grid_size):
                 # Extract cell (using array view, no copy)
-                cell = gray[i * cell_h:(i + 1) * cell_h, j * cell_w:(j + 1) * cell_w]
+                cell = gray[i * cell_h : (i + 1) * cell_h, j * cell_w : (j + 1) * cell_w]
 
                 # Canny edge detection on cell
                 edges = cv2.Canny(cell, 50, 150)
@@ -484,79 +540,108 @@ class ImageMatcher:
 
                 # Store in pre-allocated array
                 cell_idx = i * grid_size + j
-                features[cell_idx * bins_per_cell:(cell_idx + 1) * bins_per_cell] = hist
+                features[cell_idx * bins_per_cell : (cell_idx + 1) * bins_per_cell] = hist
 
         return features
 
     def _compute_spatial_color_features(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:
-        """Compute spatial color features with 4×4 grid.
+        """Compute spatial pyramid color features with HSV histograms.
 
-        Divides image into 4×4 grid, computing dense RGB histogram (8×8×8 bins) per cell.
-        Output: 16 cells × 512 bins = 8192D. Auto-reduced to 256D for large datasets.
+        Uses Spatial Pyramid Matching (SPM) with configurable scales (default [1, 3, 5]):
+        - Scale 1: Global descriptor (1 cell)
+        - Scale 3: Coarse structure (9 cells)
+        - Scale 5: Fine structure (25 cells)
+        Total cells depend on scales configuration.
+
+        Each cell is normalized by pixel area (density) before concatenation,
+        then L2-normalized after concatenation. Auto-reduced to 256D for large datasets.
 
         Args:
             img: Input image (BGR).
 
         Returns:
-            Feature vector (8192D, or 256D if dimensionality reduction enabled).
+            Feature vector (varies by scales, auto-reduced to 256D if enabled).
         """
-        grid_size = 4  # 4x4 grid
-        bins = 8  # 8x8x8 = 512 bins per cell
+        # Convert BGR to HSV
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        h, w = hsv.shape[:2]
 
-        h, w = img.shape[:2]
-        cell_h, cell_w = h // grid_size, w // grid_size
+        # HSV bins: (8 Hue, 4 Saturation, 4 Value) = 128 bins per cell
+        h_bins, s_bins, v_bins = 8, 4, 4
+        bins_per_cell = h_bins * s_bins * v_bins  # 128
+
+        # Use configured spatial pyramid scales
+        scales = self.spatial_color_scales
+        total_cells = sum(scale * scale for scale in scales)
 
         # Pre-allocate feature array
-        bins_per_cell = bins ** 3  # 512
-        features = np.zeros(grid_size * grid_size * bins_per_cell, dtype=np.float32)
+        features = np.zeros(total_cells * bins_per_cell, dtype=np.float32)
 
-        for i in range(grid_size):
-            for j in range(grid_size):
-                # Extract cell
-                cell = img[i * cell_h:(i + 1) * cell_h, j * cell_w:(j + 1) * cell_w]
+        cell_offset = 0
+        for scale in scales:
+            cell_h, cell_w = h // scale, w // scale
 
-                # Compute 3D color histogram
-                hist = cv2.calcHist(
-                    [cell], [0, 1, 2], None,
-                    [bins, bins, bins],
-                    [0, 256, 0, 256, 0, 256]
-                )
-                hist = hist.flatten()
+            for i in range(scale):
+                for j in range(scale):
+                    # Extract cell
+                    y_start, y_end = i * cell_h, (i + 1) * cell_h
+                    x_start, x_end = j * cell_w, (j + 1) * cell_w
+                    cell = hsv[y_start:y_end, x_start:x_end]
 
-                # Normalize
-                hist_sum = hist.sum()
-                if hist_sum > 0:
-                    hist = hist / hist_sum
+                    # Compute 3D HSV histogram
+                    hist = cv2.calcHist(
+                        [cell],
+                        [0, 1, 2],
+                        None,
+                        [h_bins, s_bins, v_bins],
+                        [0, 180, 0, 256, 0, 256],  # Hue: 0-180, Saturation/Value: 0-256
+                    )
+                    hist = hist.flatten()
 
-                # Store in pre-allocated array
-                cell_idx = i * grid_size + j
-                start_idx = cell_idx * bins_per_cell
-                features[start_idx:start_idx + bins_per_cell] = hist
+                    # Area normalization: divide by pixel count to get density
+                    # This ensures fine-grid cells (5x5) have equal magnitude to global grid (1x1)
+                    cell_area = (y_end - y_start) * (x_end - x_start)
+                    if cell_area > 0:
+                        hist = hist / cell_area
+
+                    # Store in pre-allocated array
+                    start_idx = cell_offset * bins_per_cell
+                    features[start_idx : start_idx + bins_per_cell] = hist
+                    cell_offset += 1
+
+        # L2 normalization on the concatenated vector
+        feature_norm = np.linalg.norm(features)
+        if feature_norm > 0:
+            features = features / feature_norm
 
         return features
 
     def fit_reducer(self, features_batch: npt.NDArray[np.float32]) -> None:
-        """Fit random projection for dimensionality reduction (8192D→256D).
+        """Fit random projection for dimensionality reduction.
+
+        Default [1,3,5] scales: 4480D→256D. Dimensions vary with spatial_color_scales.
 
         Args:
-            features_batch: Sample features for fitting (N × 8192).
+            features_batch: Sample features for fitting (N × D).
         """
         if self.dim_reducer is None:
             self.dim_reducer = GaussianRandomProjection(
                 n_components=self.reduced_dims,
-                random_state=42  # Reproducible results
+                random_state=42,  # Reproducible results
             )
             # Fit immediately on first batch (random projection needs no actual training)
             self.dim_reducer.fit(features_batch)
 
     def transform_features(self, features: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
-        """Apply dimensionality reduction (8192D→256D) if enabled.
+        """Apply dimensionality reduction if enabled.
+
+        Default [1,3,5] scales: 4480D→256D. Dimensions vary with spatial_color_scales.
 
         Args:
-            features: Input features (N × 8192 or 8192).
+            features: Input features (N × D or D).
 
         Returns:
-            Reduced features (N × 256 or 256) if enabled, otherwise unchanged.
+            Reduced features (N × reduced_dims or reduced_dims) if enabled, otherwise unchanged.
         """
         if not self.reduce_spatial_color or self.dim_reducer is None:
             return features
@@ -582,8 +667,7 @@ class ImageMatcher:
         """
         if not HAS_SKIMAGE:
             msg = (
-                "scikit-image is required for HOG features. "
-                "Install with: pip install scikit-image"
+                "scikit-image is required for HOG features. Install with: pip install scikit-image"
             )
             raise ImportError(msg)
 
@@ -592,11 +676,11 @@ class ImageMatcher:
         # Fast HOG settings optimized for speed while preserving motion
         features: npt.NDArray[Any] = hog(
             gray,
-            orientations=9,           # 9 gradient orientation bins
-            pixels_per_cell=(32, 32), # Larger cells = faster (vs 8x8 or 16x16)
-            cells_per_block=(2, 2),   # Normalization blocks
-            block_norm="L2-Hys",      # Histogram normalization method
-            feature_vector=True       # Return as 1D array
+            orientations=9,  # 9 gradient orientation bins
+            pixels_per_cell=(32, 32),  # Larger cells = faster (vs 8x8 or 16x16)
+            cells_per_block=(2, 2),  # Normalization blocks
+            block_norm="L2-Hys",  # Histogram normalization method
+            feature_vector=True,  # Return as 1D array
         )
 
         return features.astype(np.float32)
@@ -635,10 +719,9 @@ class ImageMatcher:
         input_tensor = np.expand_dims(input_tensor, axis=0)
 
         # Run ONNX inference
-        features = model.run(
-            [self._onnx_output_name],
-            {self._onnx_input_name: input_tensor}
-        )[0]  # Shape: [1, channels, 14, 14]
+        features = model.run([self._onnx_output_name], {self._onnx_input_name: input_tensor})[
+            0
+        ]  # Shape: [1, channels, 14, 14]
 
         # Global pooling (fast path): no spatial grid
         if self.use_global_pooling:
@@ -655,7 +738,7 @@ class ImageMatcher:
         pooled_features = []
         for i in range(self.spatial_grid):
             for j in range(self.spatial_grid):
-                cell = features[0, :, i*grid_h:(i+1)*grid_h, j*grid_w:(j+1)*grid_w]
+                cell = features[0, :, i * grid_h : (i + 1) * grid_h, j * grid_w : (j + 1) * grid_w]
 
                 # Apply pooling method
                 if self.pooling_method == "gem":
@@ -720,38 +803,59 @@ class ImageMatcher:
         hist, _ = np.histogram(magnitude_norm, bins=32, range=(0, 256))
         hist = hist.astype(np.float32)
 
-        # Normalize (vectorized for 5-10% speedup)
-        hist_sum = hist.sum()
-        if hist_sum > 0:
-            hist /= hist_sum  # In-place division
+        # Normalize
+        norm = np.linalg.norm(hist)
+        if norm > 0:
+            hist /= norm
 
         return hist
 
     def compute_color_features(self, img: npt.NDArray[Any]) -> npt.NDArray[Any]:
-        """Compute color histogram features in HSV space.
-
-        Args:
-            img: Input image (BGR).
-
-        Returns:
-            Normalized 3D color histogram (8x8x8 bins = 512 values).
+        """Compute spatial color features (2x2 grid of HSV histograms).
+        
+        Solves the 'Sky vs Water' problem by ensuring colors are in the 
+        correct quadrants, not just present globally.
         """
         local_img = img
         if len(local_img.shape) == _GRAYSCALE_CHANNELS:
-            # Grayscale image, convert to BGR
             local_img = cv2.cvtColor(local_img, cv2.COLOR_GRAY2BGR)
 
-        # Convert to HSV for better color representation
         hsv = cv2.cvtColor(local_img, cv2.COLOR_BGR2HSV)
+        h, w = hsv.shape[:2]
 
-        # Compute 3D histogram (reduced from 8x8x8=512 to 6x6x6=216 bins for 15-25% speedup)
-        hist = cv2.calcHist([hsv], [0, 1, 2], None, [6, 6, 6],
-                           [0, 180, 0, 256, 0, 256])
-        return cv2.normalize(hist, hist).flatten()
+        # 2x2 Grid settings
+        grid_rows, grid_cols = 2, 2
+        cell_h, cell_w = h // grid_rows, w // grid_cols
 
-    def compare_histograms(
-        self, hist1: npt.NDArray[Any], hist2: npt.NDArray[Any]
-    ) -> float:
+        features = []
+
+        # Reduced bins per cell to keep vector size reasonable
+        # 8 Hue, 4 Sat, 4 Val = 128 bins per cell * 4 cells = 512 total dims
+        # This balances perfectly with the 1024 dims of Tiny Images
+        bins = [8, 4, 4]
+        ranges = [0, 180, 0, 256, 0, 256]
+
+        for r in range(grid_rows):
+            for c in range(grid_cols):
+                # Extract cell
+                cell = hsv[r*cell_h:(r+1)*cell_h, c*cell_w:(c+1)*cell_w]
+
+                # Compute Histogram for this cell
+                hist = cv2.calcHist([cell], [0, 1, 2], None, bins, ranges)
+                features.extend(hist.flatten())
+
+        # Convert to numpy array
+        feat_vec = np.array(features, dtype=np.float32)
+
+        # L2 Normalize the WHOLE vector (crucial for "Joining")
+        # This ensures the total "Color Energy" is 1.0, matching the Tiny Image energy.
+        norm = np.linalg.norm(feat_vec)
+        if norm > 0:
+            feat_vec /= norm
+
+        return feat_vec
+
+    def compare_histograms(self, hist1: npt.NDArray[Any], hist2: npt.NDArray[Any]) -> float:
         """Compare two histograms using correlation method.
 
         Args:
@@ -787,9 +891,7 @@ class ImageMatcher:
         similarity: float = (dot_product / (norm1 * norm2) + 1) / 2
         return similarity
 
-    def compute_all_features(
-        self, img: npt.NDArray[Any]
-    ) -> FeatureDict:
+    def compute_all_features(self, img: npt.NDArray[Any]) -> FeatureDict:
         """Compute all feature vectors for an image.
 
         Optimized to cache grayscale conversion when computing edge and texture features.
@@ -813,25 +915,25 @@ class ImageMatcher:
         # (color features use HSV, so don't benefit from this cache)
         gray = self._ensure_grayscale(img)
 
-        # Compute edge features (already grayscale)
-        if self.feature_method == "canny":
-            edge_features = self._compute_canny_features(gray)
+        # 1. Compute Structure (Mapped to 'edge' key)
+        if self.feature_method == "gist":
+            edge_features = self._compute_gist_features(gray)
         elif self.feature_method == "spatial_pyramid":
             edge_features = self._compute_spatial_pyramid_features(gray)
-        else:
+        elif self.feature_method == "hog":
             edge_features = self._compute_hog_features(gray)
+        else: # Default 'canny'
+            edge_features = self._compute_canny_features(gray)
 
-        # Compute texture features (already grayscale)
+        # 2. Compute Texture (Optional - you can zero this out via weights if unwanted)
         texture_features = self.compute_texture_features(gray)
 
-        # Compute color features (needs original BGR image)
+        # 3. Compute Color (Always computed for joining)
         color_features = self.compute_color_features(img)
 
-        return {
-            "edge": edge_features,
-            "texture": texture_features,
-            "color": color_features
-        }
+        # Returns dictionary. The 'features_to_vector' method will now
+        # automatically join these three based on your weights.
+        return {"edge": edge_features, "texture": texture_features, "color": color_features}
 
     def features_to_vector(self, features: FeatureDict) -> npt.NDArray[np.float32]:
         """Convert feature dict to single vector for FAISS indexing.
@@ -893,14 +995,14 @@ class ImageMatcher:
         color_sim = self.compare_histograms(color1, color2)
 
         # Weighted combination
-        return (self.edge_weight * edge_sim +
-                self.texture_weight * texture_sim +
-                self.color_weight * color_sim)
+        return (
+            self.edge_weight * edge_sim
+            + self.texture_weight * texture_sim
+            + self.color_weight * color_sim
+        )
 
     def compute_similarity_from_features(
-        self,
-        features1: FeatureDict,
-        features2: FeatureDict
+        self, features1: FeatureDict, features2: FeatureDict
     ) -> float:
         """Compute weighted similarity from pre-computed features.
 
@@ -921,6 +1023,8 @@ class ImageMatcher:
         texture_sim = self.compare_histograms(features1["texture"], features2["texture"])  # type: ignore[typeddict-item]
         color_sim = self.compare_histograms(features1["color"], features2["color"])  # type: ignore[typeddict-item]
 
-        return (self.edge_weight * edge_sim +
-                self.texture_weight * texture_sim +
-                self.color_weight * color_sim)
+        return (
+            self.edge_weight * edge_sim
+            + self.texture_weight * texture_sim
+            + self.color_weight * color_sim
+        )

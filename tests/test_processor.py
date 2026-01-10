@@ -58,17 +58,11 @@ class TestFAISSCaching:
             images_path.mkdir()
 
             matcher1 = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                comparison_size=256
+                str(video_path), str(images_path), str(output_path), comparison_size=256
             )
 
             matcher2 = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                comparison_size=256
+                str(video_path), str(images_path), str(output_path), comparison_size=256
             )
 
             # Create test images
@@ -100,12 +94,10 @@ class TestFAISSCaching:
 
             # Different comparison_size
             matcher1 = VideoImageMatcher(
-                str(video_path), str(images_path), str(output_path),
-                comparison_size=256
+                str(video_path), str(images_path), str(output_path), comparison_size=256
             )
             matcher2 = VideoImageMatcher(
-                str(video_path), str(images_path), str(output_path),
-                comparison_size=128
+                str(video_path), str(images_path), str(output_path), comparison_size=128
             )
 
             key1 = matcher1._generate_cache_key(files)
@@ -123,11 +115,7 @@ class TestFAISSCaching:
             video_path.touch()
             images_path.mkdir()
 
-            matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path)
-            )
+            matcher = VideoImageMatcher(str(video_path), str(images_path), str(output_path))
 
             # Create test image
             img1 = images_path / "img1.jpg"
@@ -152,11 +140,7 @@ class TestFAISSCaching:
                 img_path = images_path / f"img{i}.jpg"
                 create_test_image(img_path, color=(i * 50, i * 50, i * 50))
 
-            matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path)
-            )
+            matcher = VideoImageMatcher(str(video_path), str(images_path), str(output_path))
 
             image_files = matcher.get_image_files()
             assert len(image_files) == 5
@@ -175,11 +159,7 @@ class TestFAISSCaching:
             assert matcher.vectors_path.exists()
 
             # Create new matcher and load from cache
-            matcher2 = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path)
-            )
+            matcher2 = VideoImageMatcher(str(video_path), str(images_path), str(output_path))
 
             matcher2._build_faiss_index(image_files)
 
@@ -211,7 +191,7 @@ class TestFrameRateControl:
                 str(video_path),
                 str(images_path),
                 str(output_path),
-                fps_override=10.0  # Should skip every 3rd frame
+                fps_override=10.0,  # Should skip every 3rd frame
             )
 
             # Get video info to trigger skip interval calculation
@@ -238,10 +218,7 @@ class TestFrameRateControl:
             images_path.mkdir()
 
             matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                fps_override=None
+                str(video_path), str(images_path), str(output_path), fps_override=None
             )
 
             assert matcher.input_fps_skip_interval == 1
@@ -269,7 +246,7 @@ class TestIntelligentFallback:
                 str(images_path),
                 str(output_path),
                 similarity_threshold=0.7,
-                seed=42
+                seed=42,
             )
 
             # Build minimal index
@@ -305,7 +282,7 @@ class TestIntelligentFallback:
                 str(images_path),
                 str(output_path),
                 similarity_threshold=0.95,  # Very high threshold
-                seed=42
+                seed=42,
             )
 
             # Build minimal index
@@ -342,7 +319,7 @@ class TestIntelligentFallback:
                 str(output_path),
                 no_repeat=True,
                 similarity_threshold=0.0,
-                seed=42
+                seed=42,
             )
 
             # Build minimal index
@@ -381,7 +358,7 @@ class TestIntelligentFallback:
                 str(images_path),
                 str(output_path),
                 similarity_threshold=0.99,  # Very high
-                seed=42
+                seed=42,
             )
 
             # Build minimal index
@@ -421,7 +398,7 @@ class TestIntelligentFallback:
                 no_repeat=True,
                 top_n=3,  # Very small top_n to force retries
                 similarity_threshold=0.0,
-                seed=42
+                seed=42,
             )
 
             # Process all frames
@@ -429,14 +406,14 @@ class TestIntelligentFallback:
 
             # Extract all selected images
             selected_images = [
-                data["selected"] for data in checkpoint.values()
-                if data.get("selected") is not None
+                data["selected"] for data in checkpoint.values() if data.get("selected") is not None
             ]
 
             # Verify zero duplicates
-            assert len(selected_images) == len(set(selected_images)), \
-                f"Found duplicates with no_repeat=True! Used {len(selected_images)} images, " \
+            assert len(selected_images) == len(set(selected_images)), (
+                f"Found duplicates with no_repeat=True! Used {len(selected_images)} images, "
                 f"but only {len(set(selected_images))} unique"
+            )
 
             # Verify we processed 10 frames
             assert len(selected_images) == 10
@@ -460,11 +437,7 @@ class TestDemoMode:
                 create_test_image(images_path / f"img{i}.jpg")
 
             matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                demo_mode=True,
-                demo_images=10
+                str(video_path), str(images_path), str(output_path), demo_mode=True, demo_images=10
             )
 
             image_files = matcher.get_image_files()
@@ -488,7 +461,7 @@ class TestDemoMode:
                 str(output_path),
                 demo_mode=True,
                 demo_seconds=5,
-                demo_images=10
+                demo_images=10,
             )
 
             assert matcher.demo_mode is True
@@ -509,11 +482,7 @@ class TestCheckpointIntegrity:
             video_path.touch()
             images_path.mkdir()
 
-            matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path)
-            )
+            matcher = VideoImageMatcher(str(video_path), str(images_path), str(output_path))
 
             # Create checkpoint with null selection
             checkpoint = {

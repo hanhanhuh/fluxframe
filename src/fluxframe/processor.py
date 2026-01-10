@@ -64,6 +64,7 @@ def _compute_features_worker(  # noqa: PLR0913
     gem_p: float = 3.0,
     spatial_grid: int = 2,
     use_global_pooling: bool = False,
+    spatial_color_scales: list[int] | None = None,
 ) -> tuple[str, npt.NDArray[np.float32]] | None:
     """Worker function to compute features for a single image (for multiprocessing).
 
@@ -93,6 +94,7 @@ def _compute_features_worker(  # noqa: PLR0913
         gem_p=gem_p,
         spatial_grid=spatial_grid,
         use_global_pooling=use_global_pooling,
+        spatial_color_scales=spatial_color_scales,
     )
 
     # Crop to aspect ratio and resize
@@ -100,7 +102,7 @@ def _compute_features_worker(  # noqa: PLR0913
     img_small = cv2.resize(
         img_cropped,
         (comparison_size, int(comparison_size / test_aspect_ratio)),
-        interpolation=cv2.INTER_AREA  # Best for downscaling, 10-15% faster
+        interpolation=cv2.INTER_AREA,  # Best for downscaling, 10-15% faster
     )
 
     # Compute features and convert to vector for FAISS
@@ -114,16 +116,27 @@ class VideoImageMatcher:
     """Main class for matching video frames to image dataset using FAISS."""
 
     def __init__(  # noqa: PLR0913
-        self, video_path: str, image_folder: str, output_dir: str,
-        top_n: int = 10, edge_weight: float = 0.33,
-        texture_weight: float = 0.33, color_weight: float = 0.34,
-        similarity_threshold: float = 0.0, no_repeat: bool = False,
-        comparison_size: int = 256, demo_mode: bool = False,
-        demo_seconds: int = 20, demo_images: int = 1000,
-        checkpoint_batch_size: int = 10, seed: int | None = None,
-        num_workers: int | None = None, fps_override: float | None = None,  # noqa: ARG002
+        self,
+        video_path: str,
+        image_folder: str,
+        output_dir: str,
+        top_n: int = 10,
+        edge_weight: float = 0.33,
+        texture_weight: float = 0.33,
+        color_weight: float = 0.34,
+        similarity_threshold: float = 0.0,
+        no_repeat: bool = False,
+        comparison_size: int = 256,
+        demo_mode: bool = False,
+        demo_seconds: int = 20,
+        demo_images: int = 1000,
+        checkpoint_batch_size: int = 10,
+        seed: int | None = None,
+        num_workers: int | None = None,
+        fps_override: float | None = None,
         feature_method: FeatureMethod = "canny",
-        save_samples: int = 0, sample_interval: int = 1,
+        save_samples: int = 0,
+        sample_interval: int = 1,
         force_mobilenet_export: bool = False,
         pooling_method: PoolingMethod = "avg",
         gem_p: float = 3.0,
@@ -132,6 +145,7 @@ class VideoImageMatcher:
         ivf_nlist: int | None = None,
         ivf_nprobe: int | None = None,
         use_global_pooling: bool = False,
+        spatial_color_scales: list[int] | None = None,
     ):
         """
         Initialize the video-image matcher with FAISS indexing.
@@ -158,13 +172,15 @@ class VideoImageMatcher:
                 - "canny": Fast edge histogram
                 - "spatial_pyramid": Spatial layout (2×2 or 3×3)
                 - "hog": Motion preservation
-                - "spatial_color": 4×4 color grid (8192D→256D)
+                - "spatial_color": SPM color pyramid [1,3] (1120D, no reduction)
+                - "spatial_color_edge": SPM color+edge pyramid [1,3] (1600D, 20% edges, recommended)
                 - "mobilenet"/"efficientnet": Neural features
             save_samples: Number of comparison samples to save (0 = disabled)
             sample_interval: Save every Nth frame as sample (1 = every frame)
             use_ivf_index: Use IndexIVFFlat for 16x faster search (default: True)
             ivf_nlist: Number of IVF clusters (auto: sqrt(N) * 4, max 4096)
             ivf_nprobe: Number of clusters to search (auto: nlist/32, min 1)
+            spatial_color_scales: Grid scales for spatial_color method (default [1,3,5])
         """
         self.video_path = Path(video_path)
         self.image_folder = Path(image_folder)
@@ -202,6 +218,7 @@ class VideoImageMatcher:
             gem_p=gem_p,
             spatial_grid=spatial_grid,
             use_global_pooling=use_global_pooling,
+            spatial_color_scales=spatial_color_scales,
         )
         self.checkpoint_path = self.output_dir / "checkpoint.json"
         self.results_path = self.output_dir / "results.json"
@@ -249,7 +266,7 @@ class VideoImageMatcher:
             "texture_weight": self.matcher.texture_weight,
             "color_weight": self.matcher.color_weight,
             "feature_method": self.matcher.feature_method,
-            "image_paths": sorted([str(p) for p in image_files])
+            "image_paths": sorted([str(p) for p in image_files]),
         }
 
         params_str = json.dumps(params, sort_keys=True)
@@ -264,11 +281,13 @@ class VideoImageMatcher:
         Returns:
             True if cache is valid and can be used.
         """
-        if not all([
-            self.cache_metadata_path.exists(),
-            self.faiss_index_path.exists(),
-            self.vectors_path.exists()
-        ]):
+        if not all(
+            [
+                self.cache_metadata_path.exists(),
+                self.faiss_index_path.exists(),
+                self.vectors_path.exists(),
+            ]
+        ):
             logger.info("Cache files not found, will rebuild")
             return False
 
@@ -312,10 +331,7 @@ class VideoImageMatcher:
                         self.matcher.dim_reducer = pickle.load(f)
                     logger.info(f"Loaded dimensionality reducer ({self.matcher.reduced_dims}D)")
 
-                self.faiss_index = faiss.read_index(
-                    str(self.faiss_index_path),
-                    faiss.IO_FLAG_MMAP
-                )
+                self.faiss_index = faiss.read_index(str(self.faiss_index_path), faiss.IO_FLAG_MMAP)
 
                 logger.info(
                     f"Loaded FAISS index (memory-mapped) with {len(self.image_paths)} images, "
@@ -342,19 +358,26 @@ class VideoImageMatcher:
             gem_p=self.matcher.gem_p,
             spatial_grid=self.matcher.spatial_grid,
             use_global_pooling=self.matcher.use_global_pooling,
+            spatial_color_scales=self.matcher.spatial_color_scales,
         )
 
-        # Zero-disk random projection approach for spatial_color
-        if self.matcher.reduce_spatial_color and self.matcher.feature_method == "spatial_color":
-            logger.info("Using zero-disk random projection for spatial_color (instant dimensionality reduction!)")
+        # Zero-disk random projection approach for spatial_color and spatial_color_edge
+        if self.matcher.reduce_spatial_color and self.matcher.feature_method in (
+            "spatial_color",
+            "spatial_color_edge",
+        ):
+            logger.info(
+                "Using zero-disk random projection for spatial_color (instant dimensionality reduction!)"
+            )
 
             # Randomize image order for representative sampling
             shuffled_files = image_files.copy()
             random.shuffle(shuffled_files)
 
-            # Determine random projection fit size (just needs dimensionality, not training)
-            fit_size = min(1000, len(shuffled_files))  # Only need 1k samples for dimensionality
-            logger.info(f"Phase 1/2: Fitting random projection on {fit_size} images (instant)...")
+            # Determine random projection fit size
+            # Use more samples for better projection quality (especially for high-D features)
+            fit_size = min(10000, len(shuffled_files))  # 10k samples for better quality
+            logger.info(f"Phase 1/2: Fitting random projection on {fit_size} images...")
 
             # Phase 1: Extract small subset to fit random projection
             subset_files = shuffled_files[:fit_size]
@@ -374,7 +397,9 @@ class VideoImageMatcher:
 
             fit_features = []
 
-            for result in tqdm(fit_iterator, total=len(subset_files), desc="Extracting for RP fit", smoothing=0.05):
+            for result in tqdm(
+                fit_iterator, total=len(subset_files), desc="Extracting for RP fit", smoothing=0.05
+            ):
                 if result is not None:
                     _, features = result
                     fit_features.append(features)
@@ -396,7 +421,9 @@ class VideoImageMatcher:
 
             if num_workers > 0:
                 pool_transform = mp.Pool(processes=num_workers)
-                feature_iterator = pool_transform.imap_unordered(worker_func, image_files, chunksize=50)
+                feature_iterator = pool_transform.imap_unordered(
+                    worker_func, image_files, chunksize=50
+                )
             else:
                 feature_iterator = (worker_func(img_path) for img_path in image_files)
 
@@ -406,7 +433,9 @@ class VideoImageMatcher:
             batch_paths = []
             batch_size = 5000  # Transform in batches to avoid individual transform overhead
 
-            for result in tqdm(feature_iterator, total=len(image_files), desc="Computing features", smoothing=0.05):
+            for result in tqdm(
+                feature_iterator, total=len(image_files), desc="Computing features", smoothing=0.05
+            ):
                 if result is not None:
                     path, features = result
                     batch_features.append(features)
@@ -461,7 +490,9 @@ class VideoImageMatcher:
                 logger.info(f"  Using {num_workers} parallel workers for feature extraction")
                 with mp.Pool(processes=num_workers) as pool:
                     results = pool.imap_unordered(worker_func, image_files, chunksize=50)
-                    for result in tqdm(results, total=len(image_files), desc="Computing features", smoothing=0.05):
+                    for result in tqdm(
+                        results, total=len(image_files), desc="Computing features", smoothing=0.05
+                    ):
                         if result is not None:
                             path, features = result
                             valid_paths.append(path)
@@ -496,11 +527,15 @@ class VideoImageMatcher:
             self.faiss_index.add(self.vectors)
             self.faiss_index.nprobe = nprobe
 
-            logger.info(f"Built IVF index: {len(self.image_paths)} images, dimension {self.feature_dim}")
+            logger.info(
+                f"Built IVF index: {len(self.image_paths)} images, dimension {self.feature_dim}"
+            )
         else:
             self.faiss_index = faiss.IndexFlatIP(self.feature_dim)
             self.faiss_index.add(self.vectors)
-            logger.info(f"Built flat index: {len(self.image_paths)} images, dimension {self.feature_dim}")
+            logger.info(
+                f"Built flat index: {len(self.image_paths)} images, dimension {self.feature_dim}"
+            )
 
         # Save cache
         logger.info("Saving FAISS cache...")
@@ -508,7 +543,7 @@ class VideoImageMatcher:
             "cache_key": self._generate_cache_key(image_files),
             "image_paths": self.image_paths,
             "feature_dim": self.feature_dim,
-            "num_images": len(self.image_paths)
+            "num_images": len(self.image_paths),
         }
         with self.cache_metadata_path.open("w") as f:
             json.dump(metadata, f, indent=2)
@@ -554,8 +589,7 @@ class VideoImageMatcher:
 
         # Use iterdir() - faster than multiple glob() calls (11x faster per benchmarks)
         image_files = [
-            p for p in self.image_folder.iterdir()
-            if p.is_file() and p.suffix.lower() in extensions
+            p for p in self.image_folder.iterdir() if p.is_file() and p.suffix.lower() in extensions
         ]
 
         logger.info(f"Sorting {len(image_files)} image paths...")
@@ -563,9 +597,10 @@ class VideoImageMatcher:
 
         # Apply demo mode limit
         if self.demo_mode and len(image_files) > self.demo_images:
-            logger.info(f"Demo mode: Using first {self.demo_images} images "
-                       f"out of {len(image_files)}")
-            image_files = image_files[:self.demo_images]
+            logger.info(
+                f"Demo mode: Using first {self.demo_images} images out of {len(image_files)}"
+            )
+            image_files = image_files[: self.demo_images]
 
         return image_files
 
@@ -588,15 +623,17 @@ class VideoImageMatcher:
             fps=cap.get(cv2.CAP_PROP_FPS),
             width=int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             height=int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-            total_frames=int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            total_frames=int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
         )
 
         cap.release()
         return info
 
     def find_top_matches(
-        self, frame: npt.NDArray[Any], frame_num: int,  # noqa: ARG002
-        target_aspect_ratio: float
+        self,
+        frame: npt.NDArray[Any],
+        frame_num: int,  # noqa: ARG002
+        target_aspect_ratio: float,
     ) -> list[tuple[str, float]]:
         """Find top matches using FAISS with adaptive search depth.
 
@@ -614,15 +651,17 @@ class VideoImageMatcher:
 
         # Prepare frame for comparison
         frame_small = cv2.resize(
-            frame,
-            (self.comparison_size, int(self.comparison_size / target_aspect_ratio))
+            frame, (self.comparison_size, int(self.comparison_size / target_aspect_ratio))
         )
 
         # Compute frame features and convert to vector
         features = self.matcher.compute_all_features(frame_small)
         query_vector = self.matcher.features_to_vector(features)
 
-        if self.matcher.reduce_spatial_color and self.matcher.feature_method == "spatial_color":
+        if self.matcher.reduce_spatial_color and self.matcher.feature_method in (
+            "spatial_color",
+            "spatial_color_edge",
+        ):
             query_vector = self.matcher.transform_features(query_vector)
 
         query_vector = query_vector.reshape(1, -1)
@@ -654,11 +693,7 @@ class VideoImageMatcher:
         return results
 
     def save_comparison_sample(
-        self,
-        frame: npt.NDArray[Any],
-        matched_image_path: str,
-        frame_num: int,
-        similarity: float
+        self, frame: npt.NDArray[Any], matched_image_path: str, frame_num: int, similarity: float
     ) -> None:
         """Save a side-by-side comparison of frame and matched image.
 
@@ -690,9 +725,7 @@ class VideoImageMatcher:
         # Add text overlay with frame number and similarity
         font = cv2.FONT_HERSHEY_SIMPLEX
         text = f"Frame {frame_num:06d} | Similarity: {similarity:.3f}"
-        cv2.putText(
-            comparison, text, (10, 30), font, 0.8, (0, 255, 0), 2, cv2.LINE_AA
-        )
+        cv2.putText(comparison, text, (10, 30), font, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
 
         # Save comparison image
         sample_path = self.samples_dir / f"sample_{frame_num:06d}.jpg"
@@ -716,8 +749,7 @@ class VideoImageMatcher:
 
         # Filter by threshold if set
         valid_matches = [
-            (path, score) for path, score in top_matches
-            if score >= self.similarity_threshold
+            (path, score) for path, score in top_matches if score >= self.similarity_threshold
         ]
 
         candidates = valid_matches if valid_matches else top_matches
@@ -754,11 +786,14 @@ class VideoImageMatcher:
         logger.info(f"Checkpoint batch size: {self.checkpoint_batch_size}")
         logger.info(f"Feature method: {self.matcher.feature_method}")
         if self.demo_mode:
-            logger.info(f"Demo mode: ON (max {self.demo_seconds}s video, "
-                       f"{self.demo_images} images)")
-        logger.info(f"Weights - Edge: {self.matcher.edge_weight:.2f}, "
-                   f"Texture: {self.matcher.texture_weight:.2f}, "
-                   f"Color: {self.matcher.color_weight:.2f}")
+            logger.info(
+                f"Demo mode: ON (max {self.demo_seconds}s video, {self.demo_images} images)"
+            )
+        logger.info(
+            f"Weights - Edge: {self.matcher.edge_weight:.2f}, "
+            f"Texture: {self.matcher.texture_weight:.2f}, "
+            f"Color: {self.matcher.color_weight:.2f}"
+        )
 
         # Get video info
         video_info = self.get_video_info()
@@ -770,8 +805,10 @@ class VideoImageMatcher:
         # Calculate frame skip interval if fps_override is set
         if self.fps_override is not None:
             self.input_fps_skip_interval = max(1, round(self.input_fps / self.fps_override))
-            logger.info(f"FPS override: {self.fps_override} (input: {self.input_fps:.2f}, "
-                       f"skip interval: {self.input_fps_skip_interval})")
+            logger.info(
+                f"FPS override: {self.fps_override} (input: {self.input_fps:.2f}, "
+                f"skip interval: {self.input_fps_skip_interval})"
+            )
         else:
             self.input_fps_skip_interval = 1
 
@@ -779,8 +816,10 @@ class VideoImageMatcher:
         if self.demo_mode:
             max_frames = int(self.input_fps * self.demo_seconds)
             frames_to_process = min(max_frames, total_frames)
-            logger.info(f"Demo mode: Processing first {self.demo_seconds} seconds "
-                       f"({frames_to_process} frames) out of {total_frames}")
+            logger.info(
+                f"Demo mode: Processing first {self.demo_seconds} seconds "
+                f"({frames_to_process} frames) out of {total_frames}"
+            )
         else:
             frames_to_process = total_frames
 
@@ -825,7 +864,7 @@ class VideoImageMatcher:
             total=frames_to_process,
             desc="Matching frames",
             smoothing=0.05,  # Exponential moving average for smoother ETA
-            mininterval=0.5  # Update display every 0.5 seconds minimum
+            mininterval=0.5,  # Update display every 0.5 seconds minimum
         ) as pbar:
             while frame_num < frames_to_process:
                 ret, frame = cap.read()
@@ -835,7 +874,7 @@ class VideoImageMatcher:
                 frame_key = f"frame_{frame_num:06d}"
 
                 # Check if frame should be processed based on skip interval
-                should_process = (frame_num % self.input_fps_skip_interval == 0)
+                should_process = frame_num % self.input_fps_skip_interval == 0
 
                 # Skip if already processed or if not in skip interval
                 if should_process and (
@@ -852,8 +891,7 @@ class VideoImageMatcher:
                         )
                         unused = [p for p in self.image_paths if p not in self.used_images]
                         selected = (
-                            random.choice(unused) if unused
-                            else random.choice(self.image_paths)
+                            random.choice(unused) if unused else random.choice(self.image_paths)
                         )
                         self.used_images.add(selected)
                         top_matches = [(selected, 0.0)]  # Dummy match
@@ -863,9 +901,11 @@ class VideoImageMatcher:
                     checkpoint[frame_key] = frame_result.model_dump()
 
                     # Save comparison sample if enabled
-                    if (self.save_samples > 0 and
-                        self.samples_saved < self.save_samples and
-                        frame_num % self.sample_interval == 0):
+                    if (
+                        self.save_samples > 0
+                        and self.samples_saved < self.save_samples
+                        and frame_num % self.sample_interval == 0
+                    ):
                         similarity = top_matches[0][1] if top_matches else 0.0
                         self.save_comparison_sample(frame, selected, frame_num, similarity)
                         self.samples_saved += 1
@@ -931,21 +971,17 @@ class VideoImageMatcher:
         # Initialize video writer
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
         video_writer = cv2.VideoWriter(
-            str(output_video_path), fourcc, output_fps,
-            (frame_width, frame_height)
+            str(output_video_path), fourcc, output_fps, (frame_width, frame_height)
         )
 
         # Sort frames by frame number
-        sorted_frames = sorted(
-            checkpoint.items(),
-            key=lambda x: int(x[0].split("_")[1])
-        )
+        sorted_frames = sorted(checkpoint.items(), key=lambda x: int(x[0].split("_")[1]))
 
         for frame_key, data in tqdm(
             sorted_frames,
             desc="Generating output",
             smoothing=0.05,  # Exponential moving average for smoother ETA
-            mininterval=0.5  # Update display every 0.5 seconds minimum
+            mininterval=0.5,  # Update display every 0.5 seconds minimum
         ):
             selected_path = data.get("selected")
 

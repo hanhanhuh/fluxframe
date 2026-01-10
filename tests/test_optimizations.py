@@ -30,10 +30,7 @@ class TestIVFIndexOptimization:
                 cv2.imwrite(str(images_path / f"img{i:03d}.jpg"), img)
 
             matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                use_ivf_index=True
+                str(video_path), str(images_path), str(output_path), use_ivf_index=True
             )
 
             # Build index
@@ -60,10 +57,7 @@ class TestIVFIndexOptimization:
                 cv2.imwrite(str(images_path / f"img{i:03d}.jpg"), img)
 
             matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                use_ivf_index=False
+                str(video_path), str(images_path), str(output_path), use_ivf_index=False
             )
 
             # Build index
@@ -90,10 +84,7 @@ class TestIVFIndexOptimization:
                 cv2.imwrite(str(images_path / f"img{i:03d}.jpg"), img)
 
             matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                use_ivf_index=True
+                str(video_path), str(images_path), str(output_path), use_ivf_index=True
             )
 
             # Build index
@@ -125,7 +116,7 @@ class TestIVFIndexOptimization:
                 str(output_path),
                 use_ivf_index=True,
                 ivf_nlist=16,
-                ivf_nprobe=4
+                ivf_nprobe=4,
             )
 
             # Build index
@@ -154,10 +145,7 @@ class TestIVFIndexOptimization:
                 cv2.imwrite(str(images_path / f"img{i:03d}.jpg"), img)
 
             matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                use_ivf_index=True
+                str(video_path), str(images_path), str(output_path), use_ivf_index=True
             )
 
             # Build index
@@ -186,11 +174,7 @@ class TestIVFIndexOptimization:
                 cv2.imwrite(str(images_path / f"img{i:03d}.jpg"), img)
 
             matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                use_ivf_index=True,
-                top_n=5
+                str(video_path), str(images_path), str(output_path), use_ivf_index=True, top_n=5
             )
 
             # Build index
@@ -199,11 +183,7 @@ class TestIVFIndexOptimization:
 
             # Search with a query
             query_img = np.ones((100, 100, 3), dtype=np.uint8) * 128
-            top_matches = matcher.find_top_matches(
-                query_img,
-                frame_num=0,
-                target_aspect_ratio=1.0
-            )
+            top_matches = matcher.find_top_matches(query_img, frame_num=0, target_aspect_ratio=1.0)
 
             # Should return results
             assert len(top_matches) == 5
@@ -297,20 +277,12 @@ class TestMemoryMappedIndexLoading:
                 cv2.imwrite(str(images_path / f"img{i:03d}.jpg"), img)
 
             # First run - build index
-            matcher1 = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path)
-            )
+            matcher1 = VideoImageMatcher(str(video_path), str(images_path), str(output_path))
             image_files = matcher1.get_image_files()
             matcher1._build_faiss_index(image_files)
 
             # Second run - load from cache with mmap
-            matcher2 = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path)
-            )
+            matcher2 = VideoImageMatcher(str(video_path), str(images_path), str(output_path))
             image_files2 = matcher2.get_image_files()
             matcher2._build_faiss_index(image_files2)
 
@@ -335,31 +307,21 @@ class TestMemoryMappedIndexLoading:
 
             # Build index
             matcher1 = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                top_n=5
+                str(video_path), str(images_path), str(output_path), top_n=5
             )
             image_files = matcher1.get_image_files()
             matcher1._build_faiss_index(image_files)
 
             # Load from cache and search
             matcher2 = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                top_n=5
+                str(video_path), str(images_path), str(output_path), top_n=5
             )
             image_files2 = matcher2.get_image_files()
             matcher2._build_faiss_index(image_files2)
 
             # Search
             query_img = np.ones((100, 100, 3), dtype=np.uint8) * 128
-            top_matches = matcher2.find_top_matches(
-                query_img,
-                frame_num=0,
-                target_aspect_ratio=1.0
-            )
+            top_matches = matcher2.find_top_matches(query_img, frame_num=0, target_aspect_ratio=1.0)
 
             # Should return results
             assert len(top_matches) == 5

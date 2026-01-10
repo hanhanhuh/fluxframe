@@ -13,8 +13,9 @@ import pytest
 from fluxframe import VideoImageMatcher
 
 
-def create_test_video(path: Path, num_frames: int = 10, fps: int = 30,
-                     width: int = 320, height: int = 240) -> None:
+def create_test_video(
+    path: Path, num_frames: int = 10, fps: int = 30, width: int = 320, height: int = 240
+) -> None:
     """Create a test video with different colored frames."""
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     video_writer = cv2.VideoWriter(str(path), fourcc, fps, (width, height))
@@ -92,11 +93,7 @@ class TestFullPipeline:
 
             # Run matcher
             matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_folder),
-                str(output_folder),
-                top_n=5,
-                seed=42
+                str(video_path), str(images_folder), str(output_folder), top_n=5, seed=42
             )
 
             checkpoint = matcher.process()
@@ -134,11 +131,7 @@ class TestFullPipeline:
             create_test_images(images_folder, num_images=20)
 
             matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_folder),
-                str(output_folder),
-                top_n=10,
-                seed=42
+                str(video_path), str(images_folder), str(output_folder), top_n=10, seed=42
             )
 
             checkpoint = matcher.process()
@@ -148,8 +141,11 @@ class TestFullPipeline:
 
             # Red images are img_000 to img_006
             # Check that most top matches are red images
-            red_count = sum(1 for path, _ in frame_0_matches[:5]
-                          if any(f"img_{i:03d}" in path for i in range(7)))
+            red_count = sum(
+                1
+                for path, _ in frame_0_matches[:5]
+                if any(f"img_{i:03d}" in path for i in range(7))
+            )
 
             # At least 3 out of top 5 should be red (similar color)
             assert red_count >= 3, f"Expected mostly red images in top matches, got {red_count}/5"
@@ -167,10 +163,7 @@ class TestFullPipeline:
             create_test_images(images_folder, num_images=10)
 
             matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_folder),
-                str(output_folder),
-                seed=42
+                str(video_path), str(images_folder), str(output_folder), seed=42
             )
 
             checkpoint = matcher.process()
@@ -223,10 +216,7 @@ class TestFullPipeline:
 
             # First run - process only first 2 frames manually
             matcher1 = VideoImageMatcher(
-                str(video_path),
-                str(images_folder),
-                str(output_folder),
-                seed=42
+                str(video_path), str(images_folder), str(output_folder), seed=42
             )
 
             # Manually create partial checkpoint
@@ -249,7 +239,7 @@ class TestFullPipeline:
                     selected = matcher1.select_match(top_matches)
                     partial_checkpoint[frame_key] = {
                         "top_matches": top_matches,
-                        "selected": selected
+                        "selected": selected,
                     }
 
             cap.release()
@@ -257,10 +247,7 @@ class TestFullPipeline:
 
             # Second run - should resume and complete
             matcher2 = VideoImageMatcher(
-                str(video_path),
-                str(images_folder),
-                str(output_folder),
-                seed=42
+                str(video_path), str(images_folder), str(output_folder), seed=42
             )
 
             checkpoint = matcher2.process()
@@ -293,18 +280,20 @@ class TestFullPipeline:
                 str(output_folder),
                 no_repeat=True,
                 top_n=3,
-                seed=42
+                seed=42,
             )
 
             checkpoint = matcher.process()
 
             # Collect all selected images
-            selected_images = [data["selected"] for data in checkpoint.values()
-                             if data["selected"] is not None]
+            selected_images = [
+                data["selected"] for data in checkpoint.values() if data["selected"] is not None
+            ]
 
             # When frames < images, no image should be reused
-            assert len(selected_images) == len(set(selected_images)), \
+            assert len(selected_images) == len(set(selected_images)), (
                 "No-repeat mode failed: images were reused when there were enough available"
+            )
 
             # Should have selected exactly 4 unique images
             assert len(selected_images) == 4

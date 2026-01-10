@@ -13,6 +13,7 @@ from fluxframe import ImageMatcher, VideoImageMatcher
 # Check if ONNX Runtime is available
 try:
     import onnxruntime  # noqa: F401
+
     HAS_ONNX = True
 except ImportError:
     HAS_ONNX = False
@@ -203,11 +204,7 @@ class TestImageMatcher:
         # Create fake ONNX output: [1, 48, 14, 14]
         fake_output = np.random.randn(1, 48, 14, 14).astype(np.float32)
 
-        with mock.patch.object(
-            matcher._mobilenet_model,
-            "run",
-            return_value=[fake_output]
-        ):
+        with mock.patch.object(matcher._mobilenet_model, "run", return_value=[fake_output]):
             features = matcher._compute_mobilenet_features(img)
 
         # Should be 2x2 grid * 48 channels = 192D
@@ -227,14 +224,10 @@ class TestImageMatcher:
         # Create features with distinct spatial patterns
         # Top half = high values, bottom half = low values
         fake_output = np.zeros((1, 48, 14, 14), dtype=np.float32)
-        fake_output[0, :, :7, :] = 1.0   # Top half
-        fake_output[0, :, 7:, :] = 0.0   # Bottom half
+        fake_output[0, :, :7, :] = 1.0  # Top half
+        fake_output[0, :, 7:, :] = 0.0  # Bottom half
 
-        with mock.patch.object(
-            matcher._mobilenet_model,
-            "run",
-            return_value=[fake_output]
-        ):
+        with mock.patch.object(matcher._mobilenet_model, "run", return_value=[fake_output]):
             features = matcher._compute_mobilenet_features(
                 np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)
             )
@@ -242,9 +235,9 @@ class TestImageMatcher:
         # Extract the 4 cells (top-left, top-right, bottom-left, bottom-right)
         cell_size = 48
         top_left = features[0:cell_size]
-        top_right = features[cell_size:cell_size*2]
-        bottom_left = features[cell_size*2:cell_size*3]
-        bottom_right = features[cell_size*3:cell_size*4]
+        top_right = features[cell_size : cell_size * 2]
+        bottom_left = features[cell_size * 2 : cell_size * 3]
+        bottom_right = features[cell_size * 3 : cell_size * 4]
 
         # Top cells should have higher values than bottom cells
         assert np.mean(top_left) > np.mean(bottom_left)
@@ -265,11 +258,7 @@ class TestVideoImageMatcherInit:
             video_path.touch()
             images_path.mkdir()
 
-            _ = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path)
-            )
+            _ = VideoImageMatcher(str(video_path), str(images_path), str(output_path))
 
             assert output_path.exists()
             assert output_path.is_dir()
@@ -287,9 +276,10 @@ class TestVideoImageMatcherInit:
 
             # Create test images for FAISS index
             for i in range(3):
-                img_path = images_path / f"img{i+1}.jpg"
+                img_path = images_path / f"img{i + 1}.jpg"
                 import cv2
                 import numpy as np
+
                 img = np.ones((100, 100, 3), dtype=np.uint8) * (i * 50)
                 cv2.imwrite(str(img_path), img)
 
@@ -310,7 +300,7 @@ class TestVideoImageMatcherInit:
             top_matches = [
                 (str(images_path / "img1.jpg"), 0.9),
                 (str(images_path / "img2.jpg"), 0.8),
-                (str(images_path / "img3.jpg"), 0.7)
+                (str(images_path / "img3.jpg"), 0.7),
             ]
 
             selected1 = matcher1.select_match(top_matches)
@@ -333,11 +323,7 @@ class TestVideoImageMatcherInit:
             video_path.touch()
             images_path.mkdir()
 
-            matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path)
-            )
+            matcher = VideoImageMatcher(str(video_path), str(images_path), str(output_path))
 
             assert matcher.checkpoint_path == output_path / "checkpoint.json"
             assert matcher.results_path == output_path / "results.json"
@@ -360,18 +346,14 @@ class TestCheckpointing:
             video_path.touch()
             images_path.mkdir()
 
-            matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path)
-            )
+            matcher = VideoImageMatcher(str(video_path), str(images_path), str(output_path))
 
             # Create and save checkpoint
             # Note: JSON converts tuples to lists
             checkpoint = {
                 "frame_000000": {
                     "top_matches": [["img1.jpg", 0.9], ["img2.jpg", 0.8]],
-                    "selected": "img1.jpg"
+                    "selected": "img1.jpg",
                 }
             }
             matcher.save_checkpoint(checkpoint)
@@ -393,11 +375,7 @@ class TestCheckpointing:
             video_path.touch()
             images_path.mkdir()
 
-            matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path)
-            )
+            matcher = VideoImageMatcher(str(video_path), str(images_path), str(output_path))
 
             loaded = matcher.load_checkpoint()
             assert loaded == {}
@@ -419,15 +397,13 @@ class TestImageSelection:
             # Create test images
             import cv2
             import numpy as np
+
             for i in range(3):
                 img = np.ones((100, 100, 3), dtype=np.uint8) * (i * 50)
-                cv2.imwrite(str(images_path / f"img{i+1}.jpg"), img)
+                cv2.imwrite(str(images_path / f"img{i + 1}.jpg"), img)
 
             matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                seed=42
+                str(video_path), str(images_path), str(output_path), seed=42
             )
 
             # Build index
@@ -436,7 +412,7 @@ class TestImageSelection:
             top_matches = [
                 (str(images_path / "img1.jpg"), 0.9),
                 (str(images_path / "img2.jpg"), 0.8),
-                (str(images_path / "img3.jpg"), 0.7)
+                (str(images_path / "img3.jpg"), 0.7),
             ]
 
             selected = matcher.select_match(top_matches)
@@ -457,24 +433,22 @@ class TestImageSelection:
             # Create test images
             import cv2
             import numpy as np
+
             for i in range(3):
                 img = np.ones((100, 100, 3), dtype=np.uint8) * (i * 50)
-                cv2.imwrite(str(images_path / f"img{i+1}.jpg"), img)
+                cv2.imwrite(str(images_path / f"img{i + 1}.jpg"), img)
 
             matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                similarity_threshold=0.85
+                str(video_path), str(images_path), str(output_path), similarity_threshold=0.85
             )
 
             # Build index
             matcher._build_faiss_index(matcher.get_image_files())
 
             top_matches = [
-                (str(images_path / "img1.jpg"), 0.9),   # Above threshold
-                (str(images_path / "img2.jpg"), 0.8),   # Below threshold
-                (str(images_path / "img3.jpg"), 0.7)    # Below threshold
+                (str(images_path / "img1.jpg"), 0.9),  # Above threshold
+                (str(images_path / "img2.jpg"), 0.8),  # Below threshold
+                (str(images_path / "img3.jpg"), 0.7),  # Below threshold
             ]
 
             selected = matcher.select_match(top_matches)
@@ -495,15 +469,13 @@ class TestImageSelection:
             # Create test images
             import cv2
             import numpy as np
+
             for i in range(3):
                 img = np.ones((100, 100, 3), dtype=np.uint8) * (i * 50)
-                cv2.imwrite(str(images_path / f"img{i+1}.jpg"), img)
+                cv2.imwrite(str(images_path / f"img{i + 1}.jpg"), img)
 
             matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                similarity_threshold=0.95
+                str(video_path), str(images_path), str(output_path), similarity_threshold=0.95
             )
 
             # Build index
@@ -512,7 +484,7 @@ class TestImageSelection:
             top_matches = [
                 (str(images_path / "img1.jpg"), 0.9),
                 (str(images_path / "img2.jpg"), 0.8),
-                (str(images_path / "img3.jpg"), 0.7)
+                (str(images_path / "img3.jpg"), 0.7),
             ]
 
             selected = matcher.select_match(top_matches)
@@ -534,16 +506,13 @@ class TestImageSelection:
             # Create test images
             import cv2
             import numpy as np
+
             for i in range(3):
                 img = np.ones((100, 100, 3), dtype=np.uint8) * (i * 50)
-                cv2.imwrite(str(images_path / f"img{i+1}.jpg"), img)
+                cv2.imwrite(str(images_path / f"img{i + 1}.jpg"), img)
 
             matcher = VideoImageMatcher(
-                str(video_path),
-                str(images_path),
-                str(output_path),
-                no_repeat=True,
-                seed=42
+                str(video_path), str(images_path), str(output_path), no_repeat=True, seed=42
             )
 
             # Build index
@@ -552,7 +521,7 @@ class TestImageSelection:
             top_matches = [
                 (str(images_path / "img1.jpg"), 0.9),
                 (str(images_path / "img2.jpg"), 0.8),
-                (str(images_path / "img3.jpg"), 0.7)
+                (str(images_path / "img3.jpg"), 0.7),
             ]
 
             # With no_repeat mode, always picks the best (first) match
