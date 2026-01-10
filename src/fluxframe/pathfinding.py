@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pathfinding module for generating smooth video transitions."""
+"""Pathfinding module for generating videos via perceptual similarity."""
 
 from __future__ import annotations
 

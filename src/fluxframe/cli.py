@@ -147,7 +147,7 @@ def main() -> None:
     match_parser = subparsers.add_parser("match", help="Match video frames to similar images")
     add_match_args(match_parser)
 
-    generate_parser = subparsers.add_parser("generate", help="Generate smooth transition videos")
+    generate_parser = subparsers.add_parser("generate", help="Generate videos from image collections")
     add_generate_args(generate_parser)
 
     args = parser.parse_args()
