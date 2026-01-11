@@ -30,7 +30,7 @@ class CheckpointManager:
 
         try:
             with self.checkpoint_path.open() as f:
-                checkpoint = json.load(f)
+                checkpoint: dict[str, Any] = json.load(f)
                 logger.info(f"Loaded checkpoint with {len(checkpoint.get('frames', []))} frames")
                 return checkpoint
         except Exception as e:
