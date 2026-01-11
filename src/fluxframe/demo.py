@@ -55,7 +55,7 @@ def create_comparison_grid(
 
         # Resize image if needed
         if img.shape[:2] != (h, w):
-            img = cv2.resize(img, (w, h))
+            img = cv2.resize(img, (w, h))  # noqa: PLW2901
 
         # Place image
         y_start = row * total_h
@@ -242,7 +242,7 @@ def run_comparison_demo(args: argparse.Namespace) -> None:
 
         # Create mini grid for this weight config
         images = []
-        for idx_img, dist in neighbors:
+        for idx_img, _dist in neighbors:
             img = cv2.imread(str(img_dir / db.filenames[idx_img]))
             img = cv2.resize(img, (320, 180))
             images.append(img)

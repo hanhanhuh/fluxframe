@@ -105,7 +105,7 @@ class PathFinder:
         query_vec = (lab * self.idx.w_tile).reshape(1, -1)
 
         # Search for top candidates
-        D, I = self.idx.index.search(query_vec, 10)
+        _distances, _indices = self.idx.index.search(query_vec, 10)
 
         # Create preview directory
         preview_dir = self.cfg.output_dir / "_CANDIDATE_PREVIEW"
@@ -120,7 +120,7 @@ class PathFinder:
         print(f"{'=' * 80}")
 
         candidates = []
-        for rank, (dist, node_idx) in enumerate(zip(D[0], I[0], strict=False)):
+        for rank, (dist, node_idx) in enumerate(zip(_distances[0], _indices[0], strict=False)):
             if node_idx == -1:
                 continue
 
@@ -330,7 +330,8 @@ class PathFinder:
                 return True
             if self.cfg.enforce_unique:
                 pbar.close()
-                print(f"\n[Algo] STOP: Only {len(path)}/{self.cfg.total_frames} unique frames available.")
+                total = self.cfg.total_frames
+                print(f"\n[Algo] STOP: Only {len(path)}/{total} unique frames available.")
                 return False
             return False
         # Beyond leash: force move to escape local minimum

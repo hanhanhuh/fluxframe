@@ -31,49 +31,96 @@ def main() -> None:
 
     # Metric configuration (shared)
     metric_group = parser.add_argument_group("metric options")
-    metric_group.add_argument("--metric", type=str, choices=["lab", "ssim", "lab+ssim", "gist"], default="lab",
-                             help="Distance metric (lab=fast color, ssim=structural, gist=scene layout)")
-    metric_group.add_argument("--weights", type=float, nargs=3, default=[1.0, 2.0, 2.0],
-                             help="LAB channel weights (L, A, B)")
-    metric_group.add_argument("--ssim-weight", type=float, default=0.5, help="SSIM weight for lab+ssim hybrid")
-    metric_group.add_argument("--threshold", type=float, default=0.0, help="Similarity threshold")
-    metric_group.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
+    metric_group.add_argument(
+        "--metric",
+        type=str,
+        choices=["lab", "ssim", "lab+ssim", "gist"],
+        default="lab",
+        help="Distance metric (lab=fast color, ssim=structural, gist=scene)",
+    )
+    metric_group.add_argument(
+        "--weights", type=float, nargs=3, default=[1.0, 2.0, 2.0], help="LAB weights (L, A, B)"
+    )
+    metric_group.add_argument(
+        "--ssim-weight", type=float, default=0.5, help="SSIM weight for lab+ssim"
+    )
+    metric_group.add_argument(
+        "--threshold", type=float, default=0.0, help="Similarity threshold"
+    )
+    metric_group.add_argument(
+        "--seed", type=int, default=None, help="Random seed"
+    )
 
     # Output configuration (shared)
     output_group = parser.add_argument_group("output options")
     output_group.add_argument("--fps", type=int, default=30, help="Output FPS")
-    output_group.add_argument("--no-repeat", action="store_true", help="Use each image only once")
-    output_group.add_argument("--color-grade", nargs="*", metavar="METHOD",
-                             choices=["histogram", "color_transfer", "lut"],
-                             help="Enable color grading with methods (e.g., --color-grade histogram lut). "
-                                  "Generates base + one video per method. Empty = all methods")
-    output_group.add_argument("--color-strength", type=float, default=0.7, help="Color grading strength (0-1)")
+    output_group.add_argument(
+        "--no-repeat", action="store_true", help="Use each image only once"
+    )
+    output_group.add_argument(
+        "--color-grade",
+        nargs="*",
+        metavar="METHOD",
+        choices=["histogram", "color_transfer", "lut"],
+        help="Color grading methods. Generates base + one per method.",
+    )
+    output_group.add_argument(
+        "--color-strength", type=float, default=0.7, help="Color strength (0-1)"
+    )
 
     # Legacy support (deprecated)
-    output_group.add_argument("--color-method", type=str, choices=["histogram", "color_transfer", "lut"],
-                             default="histogram", help="[DEPRECATED] Use --color-grade instead")
+    output_group.add_argument(
+        "--color-method",
+        type=str,
+        choices=["histogram", "color_transfer", "lut"],
+        default="histogram",
+        help="[DEPRECATED] Use --color-grade",
+    )
 
     # Generation-specific options
     gen_group = parser.add_argument_group("generation options (without --video)")
-    gen_group.add_argument("--formats", nargs="+", default=["1080x1920:shorts.mp4", "1920x1080:wide.mp4"],
-                          help="Output formats as WIDTHxHEIGHT:filename")
+    gen_group.add_argument(
+        "--formats",
+        nargs="+",
+        default=["1080x1920:shorts.mp4", "1920x1080:wide.mp4"],
+        help="Output formats as WIDTHxHEIGHT:filename",
+    )
     gen_group.add_argument("--dur", type=int, default=10, help="Duration in seconds")
-    gen_group.add_argument("--start-img", type=str, default=None, help="Starting image path")
-    gen_group.add_argument("--smoothing", type=int, default=3, help="Pathfinding smoothness (1=greedy, 3-5=smooth)")
+    gen_group.add_argument(
+        "--start-img", type=str, default=None, help="Starting image path"
+    )
+    gen_group.add_argument(
+        "--smoothing", type=int, default=3, help="Smoothness (1=greedy, 3-5=smooth)"
+    )
 
     # Matching-specific options
     match_group = parser.add_argument_group("matching options (with --video)")
-    match_group.add_argument("--fps-override", type=float, default=None, help="Override input video FPS")
-    match_group.add_argument("--checkpoint-batch", type=int, default=10, help="Save checkpoint every N frames")
-    match_group.add_argument("--skip-output", action="store_true", help="Skip output video generation")
+    match_group.add_argument(
+        "--fps-override", type=float, default=None, help="Override input FPS"
+    )
+    match_group.add_argument(
+        "--checkpoint-batch", type=int, default=10, help="Save every N frames"
+    )
+    match_group.add_argument(
+        "--skip-output", action="store_true", help="Skip output generation"
+    )
 
     # Debug options
     debug_group = parser.add_argument_group("debug options")
-    debug_group.add_argument("--top-n", type=int, default=10, help="Search depth (candidates to consider)")
-    debug_group.add_argument("--demo-limit", type=int, default=None, help="Limit frames/images for quick testing")
-    debug_group.add_argument("--save-samples", type=int, default=0, help="Save comparison sample images")
-    debug_group.add_argument("--comparison-demo", action="store_true",
-                            help="Generate metric comparison grids (uses --demo-limit)")
+    debug_group.add_argument(
+        "--top-n", type=int, default=10, help="Search depth (candidates)"
+    )
+    debug_group.add_argument(
+        "--demo-limit", type=int, default=None, help="Limit for quick testing"
+    )
+    debug_group.add_argument(
+        "--save-samples", type=int, default=0, help="Save comparison samples"
+    )
+    debug_group.add_argument(
+        "--comparison-demo",
+        action="store_true",
+        help="Generate metric comparison grids",
+    )
 
     args = parser.parse_args()
 

@@ -104,17 +104,22 @@ class VideoRenderer:
         variants_per_target = 1 + len(self.color_graders)  # base + graded versions
         total_outputs = len(self.cfg.targets) * variants_per_target
 
-        print(f"[Render] Starting rendering for {len(self.cfg.targets)} formats x {variants_per_target} variants = {total_outputs} videos ({len(path_indices)} frames)...")
+        print(
+            f"[Render] Starting rendering for {len(self.cfg.targets)} formats "
+            f"x {variants_per_target} variants = {total_outputs} videos "
+            f"({len(path_indices)} frames)..."
+        )
         print(f"[Render] Output location: {self.cfg.output_dir.absolute()}")
 
         if self.color_graders:
             methods_str = ", ".join(self.color_graders.keys())
-            print(f"[Render] Color grading methods: {methods_str} (strength={self.cfg.color_grading_strength})")
+            strength = self.cfg.color_grading_strength
+            print(f"[Render] Color grading methods: {methods_str} (strength={strength})")
             print("[Render] Plus base (non-graded) version for each format")
 
         # Open all video writers
         with ExitStack() as stack:
-            # Structure: [(writer, target, grading_method), ...]
+            # Structure: [(writer, target, grading_method), ...]  # noqa: ERA001
             # grading_method is None for base version, or method name for graded
             writers = []
 

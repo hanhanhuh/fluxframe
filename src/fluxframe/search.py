@@ -52,7 +52,7 @@ class SearchIndex:
 
         if self.index_path.exists() and self.meta_path.exists():
             try:
-                with open(self.meta_path) as f:
+                with self.meta_path.open() as f:
                     meta = json.load(f)
 
                 # Check if weights match (FAISS index depends on weights)
@@ -107,7 +107,7 @@ class SearchIndex:
 
         # Save index and metadata
         faiss.write_index(self.index, str(self.index_path))
-        with open(self.meta_path, "w") as f:
+        with self.meta_path.open("w") as f:
             json.dump(
                 {"weights": list(self.cfg.weights), "metric": self.cfg.metric}, f
             )

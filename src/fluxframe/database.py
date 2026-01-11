@@ -47,7 +47,7 @@ class ImageDatabase:
         # Check if cache exists
         if self.raw_path.exists() and self.names_path.exists():
             print(f"[DB] Using existing cache: {self.raw_path.name}")
-            with open(self.names_path) as f:
+            with self.names_path.open() as f:
                 self.filenames = json.load(f)
 
             # Verify cache file size matches expected size
@@ -106,7 +106,7 @@ class ImageDatabase:
             mm.flush()
 
         # Save filenames list
-        with open(self.names_path, "w") as f:
+        with self.names_path.open("w") as f:
             json.dump(valid_files, f)
 
         self.filenames = valid_files
@@ -130,7 +130,7 @@ def _worker_load_img(path: Path) -> np.ndarray | None:
     try:
         # Try TurboJPEG first for JPEG files (3x faster)
         if HAS_TURBOJPEG and path.suffix.lower() in {".jpg", ".jpeg"}:
-            with open(path, "rb") as f:
+            with path.open("rb") as f:
                 img_data = f.read()
             img = _jpeg_decoder.decode(img_data, pixel_format=0)  # BGR format
         else:

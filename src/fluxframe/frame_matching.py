@@ -351,8 +351,14 @@ class VideoFrameMatcher:
                 frame_lab = VideoReader.frame_to_lab(frame)
 
                 # Search for nearest neighbors
-                k = self.cfg.top_n + len(self.used_indices) if self.cfg.enforce_unique else self.cfg.top_n
-                distances, indices = self.search_index.search_vector(frame_lab, k_candidates=k)
+                k = (
+                    self.cfg.top_n + len(self.used_indices)
+                    if self.cfg.enforce_unique
+                    else self.cfg.top_n
+                )
+                distances, indices = self.search_index.search_vector(
+                    frame_lab, k_candidates=k
+                )
 
                 # Select best match
                 selected_idx = self._select_match(indices, distances)

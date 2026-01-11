@@ -214,9 +214,21 @@ class ColorGrader:
                 for b in range(lut_size):
                     # Map each channel independently using CDF matching
                     # Find closest CDF value in target for each channel
-                    r_mapped = np.argmin(np.abs(target_cdf_r - source_cdf_r[r])) if r < len(source_cdf_r) else r
-                    g_mapped = np.argmin(np.abs(target_cdf_g - source_cdf_g[g])) if g < len(source_cdf_g) else g
-                    b_mapped = np.argmin(np.abs(target_cdf_b - source_cdf_b[b])) if b < len(source_cdf_b) else b
+                    r_mapped = (
+                        np.argmin(np.abs(target_cdf_r - source_cdf_r[r]))
+                        if r < len(source_cdf_r)
+                        else r
+                    )
+                    g_mapped = (
+                        np.argmin(np.abs(target_cdf_g - source_cdf_g[g]))
+                        if g < len(source_cdf_g)
+                        else g
+                    )
+                    b_mapped = (
+                        np.argmin(np.abs(target_cdf_b - source_cdf_b[b]))
+                        if b < len(source_cdf_b)
+                        else b
+                    )
 
                     # Scale back to 0-255 range
                     lut_3d[r, g, b] = [
@@ -255,7 +267,7 @@ class ColorGrader:
         Returns:
             Blended image
         """
-        # Blend: result = original * (1 - strength) + adjusted * strength
+        # Blend: result = original * (1 - strength) + adjusted * strength  # noqa: ERA001
         return cv2.addWeighted(
             original, 1.0 - self.strength, adjusted, self.strength, 0
         )
