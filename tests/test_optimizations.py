@@ -8,7 +8,7 @@ import faiss
 import numpy as np
 import pytest
 
-from fluxframe import VideoImageMatcher
+from fluxframe import VideoFrameMatcher
 
 
 class TestIVFIndexOptimization:
@@ -29,7 +29,7 @@ class TestIVFIndexOptimization:
                 img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
                 cv2.imwrite(str(images_path / f"img{i:03d}.jpg"), img)
 
-            matcher = VideoImageMatcher(
+            matcher = VideoFrameMatcher(
                 str(video_path), str(images_path), str(output_path), use_ivf_index=True
             )
 
@@ -56,7 +56,7 @@ class TestIVFIndexOptimization:
                 img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
                 cv2.imwrite(str(images_path / f"img{i:03d}.jpg"), img)
 
-            matcher = VideoImageMatcher(
+            matcher = VideoFrameMatcher(
                 str(video_path), str(images_path), str(output_path), use_ivf_index=False
             )
 
@@ -83,7 +83,7 @@ class TestIVFIndexOptimization:
                 img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
                 cv2.imwrite(str(images_path / f"img{i:03d}.jpg"), img)
 
-            matcher = VideoImageMatcher(
+            matcher = VideoFrameMatcher(
                 str(video_path), str(images_path), str(output_path), use_ivf_index=True
             )
 
@@ -110,7 +110,7 @@ class TestIVFIndexOptimization:
                 img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
                 cv2.imwrite(str(images_path / f"img{i:03d}.jpg"), img)
 
-            matcher = VideoImageMatcher(
+            matcher = VideoFrameMatcher(
                 str(video_path),
                 str(images_path),
                 str(output_path),
@@ -144,7 +144,7 @@ class TestIVFIndexOptimization:
                 img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
                 cv2.imwrite(str(images_path / f"img{i:03d}.jpg"), img)
 
-            matcher = VideoImageMatcher(
+            matcher = VideoFrameMatcher(
                 str(video_path), str(images_path), str(output_path), use_ivf_index=True
             )
 
@@ -173,7 +173,7 @@ class TestIVFIndexOptimization:
                 img = np.ones((100, 100, 3), dtype=np.uint8) * (i % 256)
                 cv2.imwrite(str(images_path / f"img{i:03d}.jpg"), img)
 
-            matcher = VideoImageMatcher(
+            matcher = VideoFrameMatcher(
                 str(video_path), str(images_path), str(output_path), use_ivf_index=True, top_n=5
             )
 
@@ -277,12 +277,12 @@ class TestMemoryMappedIndexLoading:
                 cv2.imwrite(str(images_path / f"img{i:03d}.jpg"), img)
 
             # First run - build index
-            matcher1 = VideoImageMatcher(str(video_path), str(images_path), str(output_path))
+            matcher1 = VideoFrameMatcher(str(video_path), str(images_path), str(output_path))
             image_files = matcher1.get_image_files()
             matcher1._build_faiss_index(image_files)
 
             # Second run - load from cache with mmap
-            matcher2 = VideoImageMatcher(str(video_path), str(images_path), str(output_path))
+            matcher2 = VideoFrameMatcher(str(video_path), str(images_path), str(output_path))
             image_files2 = matcher2.get_image_files()
             matcher2._build_faiss_index(image_files2)
 
@@ -306,14 +306,14 @@ class TestMemoryMappedIndexLoading:
                 cv2.imwrite(str(images_path / f"img{i:03d}.jpg"), img)
 
             # Build index
-            matcher1 = VideoImageMatcher(
+            matcher1 = VideoFrameMatcher(
                 str(video_path), str(images_path), str(output_path), top_n=5
             )
             image_files = matcher1.get_image_files()
             matcher1._build_faiss_index(image_files)
 
             # Load from cache and search
-            matcher2 = VideoImageMatcher(
+            matcher2 = VideoFrameMatcher(
                 str(video_path), str(images_path), str(output_path), top_n=5
             )
             image_files2 = matcher2.get_image_files()
