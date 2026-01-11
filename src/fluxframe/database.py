@@ -67,7 +67,7 @@ class ImageDatabase:
             self._build_database()
 
     def _build_database(self) -> None:
-        """Build database from image directory."""
+        """Build database from image directory using chunked processing for memory efficiency."""
         print(f"[DB] Building cache from {self.cfg.img_dir} (one-time operation)...")
 
         if HAS_TURBOJPEG:
@@ -84,33 +84,58 @@ class ImageDatabase:
         if not files:
             sys.exit("Error: No images found in directory")
 
-        # Process images in parallel
-        results = process_map(
-            _worker_load_img, files, chunksize=50, max_workers=None, desc="Indexing images"
+        # Pre-allocate memmap for worst case (all images valid)
+        # This will be trimmed later if some images are invalid
+        temp_mm = np.memmap(
+            self.raw_path, dtype="uint8", mode="w+", shape=(len(files), self.cfg.dims_raw)
         )
 
-        valid_data = [res for res in results if res is not None]
-        valid_files = [f.name for f, res in zip(files, results, strict=False) if res is not None]
+        valid_files: list[str] = []
+        valid_count = 0
+        chunk_size = 300000  # ~3.6 GB per chunk for 64x64x3 images
 
-        if not valid_data:
+        # Process images in chunks to limit memory usage
+        num_chunks = (len(files) + chunk_size - 1) // chunk_size
+        for chunk_idx in range(0, len(files), chunk_size):
+            chunk_num = chunk_idx // chunk_size + 1
+            chunk_files = files[chunk_idx : chunk_idx + chunk_size]
+
+            # Process this chunk in parallel
+            chunk_results = process_map(
+                _worker_load_img,
+                chunk_files,
+                chunksize=50,
+                max_workers=None,
+                desc=f"Chunk {chunk_num}/{num_chunks}",
+            )
+
+            # Write valid results to memmap
+            for fname, data in zip(chunk_files, chunk_results, strict=False):
+                if data is not None:
+                    temp_mm[valid_count] = data
+                    valid_files.append(fname.name)
+                    valid_count += 1
+
+            temp_mm.flush()
+            del chunk_results  # Free memory immediately
+
+        if valid_count == 0:
             sys.exit("Error: Could not read any images")
 
-        # Write to memmap
-        shape = (len(valid_data), self.cfg.dims_raw)
-        mm = np.memmap(self.raw_path, dtype="uint8", mode="w+", shape=shape)
-
-        batch_size = 5000
-        for i in range(0, len(valid_data), batch_size):
-            batch = np.array(valid_data[i : i + batch_size], dtype=np.uint8)
-            mm[i : i + len(batch)] = batch
-            mm.flush()
+        # Trim memmap to actual size if some images were invalid
+        if valid_count < len(files):
+            temp_mm.flush()
+            del temp_mm
+            temp_mm = np.memmap(
+                self.raw_path, dtype="uint8", mode="r+", shape=(valid_count, self.cfg.dims_raw)
+            )
 
         # Save filenames list
         with self.names_path.open("w") as f:
             json.dump(valid_files, f)
 
         self.filenames = valid_files
-        self.data = mm
+        self.data = temp_mm
         print(f"[DB] Complete: {len(valid_files)} images indexed")
 
     def __len__(self) -> int:
