@@ -8,13 +8,8 @@ import numpy as np
 
 from .config import Config
 
-# Try to import color-matcher for LUT method
-try:
-    from colorharmonies import ColorTransfer
-
-    HAS_COLOR_MATCHER = False  # Placeholder for actual library
-except ImportError:
-    HAS_COLOR_MATCHER = False
+# Note: colorharmonies library not currently used
+# Color matching is implemented using OpenCV
 
 
 class ColorGrader:
@@ -101,8 +96,8 @@ class ColorGrader:
             Matched channel
         """
         # Compute CDFs
-        source_hist, source_bins = np.histogram(source.flatten(), 256, (0, 256))
-        target_hist, target_bins = np.histogram(target.flatten(), 256, (0, 256))
+        source_hist, _ = np.histogram(source.flatten(), 256, (0, 256))
+        target_hist, _ = np.histogram(target.flatten(), 256, (0, 256))
 
         source_cdf = source_hist.cumsum()
         target_cdf = target_hist.cumsum()

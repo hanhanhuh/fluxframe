@@ -10,7 +10,7 @@ import imageio
 import numpy as np
 from tqdm import tqdm
 
-from .color_grading import ColorGrader, create_color_grader
+from .color_grading import ColorGrader
 from .config import Config
 from .database import ImageDatabase
 
@@ -110,7 +110,7 @@ class VideoRenderer:
         if self.color_graders:
             methods_str = ", ".join(self.color_graders.keys())
             print(f"[Render] Color grading methods: {methods_str} (strength={self.cfg.color_grading_strength})")
-            print(f"[Render] Plus base (non-graded) version for each format")
+            print("[Render] Plus base (non-graded) version for each format")
 
         # Open all video writers
         with ExitStack() as stack:

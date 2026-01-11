@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from .config import Config
 from .database import ImageDatabase
-from .metrics import DistanceMetric, create_metric
+from .metrics import create_metric
 
 # Try to import Numba for JIT acceleration
 try:

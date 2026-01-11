@@ -4,11 +4,9 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 import cv2
 import numpy as np
-from tqdm import tqdm
 
 from .color_grading import ColorGrader
 from .config import Config
@@ -129,7 +127,7 @@ def run_comparison_demo(args: argparse.Namespace) -> None:
 
         # Create database and index
         db = ImageDatabase(cfg)
-        idx = SearchIndex(cfg, db)
+        _ = SearchIndex(cfg, db)  # Build index
         metric_fn = create_metric(cfg)
 
         # Find nearest neighbors for first image
@@ -227,7 +225,7 @@ def run_comparison_demo(args: argparse.Namespace) -> None:
         )
 
         db = ImageDatabase(cfg)
-        idx = SearchIndex(cfg, db)
+        _ = SearchIndex(cfg, db)  # Build index
         metric_fn = create_metric(cfg)
 
         # Find nearest neighbors

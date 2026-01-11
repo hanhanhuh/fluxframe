@@ -291,11 +291,10 @@ def create_metric(cfg: Config) -> DistanceMetric:
     """
     if cfg.metric == "lab":
         return LABWeightedDistance(cfg)
-    elif cfg.metric == "ssim":
+    if cfg.metric == "ssim":
         return SSIMMetric(cfg)
-    elif cfg.metric == "lab+ssim":
+    if cfg.metric == "lab+ssim":
         return HybridMetric(cfg)
-    elif cfg.metric == "gist":
+    if cfg.metric == "gist":
         return GISTMetric(cfg)
-    else:
-        raise ValueError(f"Unknown metric type: {cfg.metric}")
+    raise ValueError(f"Unknown metric type: {cfg.metric}")

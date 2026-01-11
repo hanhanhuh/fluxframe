@@ -28,7 +28,7 @@ class Config:
     # Required Settings
     img_dir: Path
     output_dir: Path
-    targets: list[RenderTarget] = None  # Empty for matching mode
+    targets: list[RenderTarget] | None = None  # Empty for matching mode
 
     # Video Generation Settings
     fps: int = 30
@@ -52,7 +52,7 @@ class Config:
     # Color Grading Configuration (shared)
     # If empty list, no color grading is applied
     # If list contains methods, generates one video per method plus ungraded
-    color_grading_methods: list[ColorGradingMethod] = None
+    color_grading_methods: list[ColorGradingMethod] | None = None
     color_grading_strength: float = 0.7  # 0.0-1.0
 
     # Legacy single-method support (deprecated, use color_grading_methods)
@@ -81,7 +81,7 @@ class Config:
     fn_meta: str = "cache_meta.json"
     fn_index: str = "cache_faiss.index"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Post-initialization processing."""
         # Convert targets to empty list if None (for matching mode)
         if self.targets is None:

@@ -10,7 +10,7 @@ from tqdm import tqdm
 from .checkpoint import CheckpointManager
 from .config import Config
 from .database import ImageDatabase
-from .models import FrameResult, VideoInfo
+from .models import VideoInfo
 from .search import SearchIndex
 from .video import VideoReader
 
@@ -193,7 +193,6 @@ class VideoFrameMatcher:
             image_files: List of image files (ignored, uses existing index)
         """
         # Index is already built - this is a no-op for compatibility
-        pass
 
     def _generate_cache_key(self, image_files: list[Path]) -> str:
         """Generate cache key for test compatibility.
@@ -296,9 +295,8 @@ class VideoFrameMatcher:
 
             # All used - return best anyway
             return top_matches[0][0]
-        else:
-            # Return best match
-            return top_matches[0][0]
+        # Return best match
+        return top_matches[0][0]
 
     def save_checkpoint(self, checkpoint: dict) -> None:
         """Save checkpoint to disk.
@@ -404,9 +402,8 @@ class VideoFrameMatcher:
             valid_indices = indices[valid_mask]
             # Return best unused
             return int(valid_indices[0])
-        else:
-            # Return best match
-            return int(indices[0])
+        # Return best match
+        return int(indices[0])
 
     def generate_output(self, checkpoint: dict) -> None:
         """Generate output video from checkpoint.
