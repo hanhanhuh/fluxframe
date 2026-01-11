@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import random
 import shutil
 import sys
@@ -119,7 +120,7 @@ class PathFinder:
         print(f"{'=' * 80}")
 
         candidates = []
-        for rank, (dist, node_idx) in enumerate(zip(D[0], I[0])):
+        for rank, (dist, node_idx) in enumerate(zip(D[0], I[0], strict=False)):
             if node_idx == -1:
                 continue
 
@@ -129,10 +130,8 @@ class PathFinder:
 
             # Copy to preview directory
             dest_name = f"{rank}_{fname}"
-            try:
+            with contextlib.suppress(Exception):
                 shutil.copy(full_path, preview_dir / dest_name)
-            except Exception:
-                pass
 
             print(f" [{rank}] {full_path.absolute()} (Dist: {dist:.0f})")
 
@@ -230,7 +229,7 @@ class PathFinder:
             True if successful, False otherwise
         """
         last = path[-1]
-        d, i = self.idx.search_id(last, k_candidates=50)
+        _d, i = self.idx.search_id(last, k_candidates=50)
 
         for cand in i:
             if cand not in visited:

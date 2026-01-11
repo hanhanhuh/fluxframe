@@ -90,7 +90,7 @@ class ImageDatabase:
         )
 
         valid_data = [res for res in results if res is not None]
-        valid_files = [f.name for f, res in zip(files, results) if res is not None]
+        valid_files = [f.name for f, res in zip(files, results, strict=False) if res is not None]
 
         if not valid_data:
             sys.exit("Error: Could not read any images")

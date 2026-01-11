@@ -139,7 +139,7 @@ class VideoRenderer:
                 writers.append((w, t, None))  # None = no color grading
 
                 # Color graded versions
-                for method in self.color_graders.keys():
+                for method in self.color_graders:
                     # Insert method name before extension
                     stem = t.filename.rsplit(".", 1)[0] if "." in t.filename else t.filename
                     ext = t.filename.rsplit(".", 1)[1] if "." in t.filename else "mp4"

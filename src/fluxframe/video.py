@@ -42,7 +42,8 @@ class VideoReader:
         """
         cap = cv2.VideoCapture(str(self.video_path))
         if not cap.isOpened():
-            raise ValueError(f"Could not open video: {self.video_path}")
+            msg = f"Could not open video: {self.video_path}"
+            raise ValueError(msg)
 
         fps = cap.get(cv2.CAP_PROP_FPS)
         if self.fps_override:
@@ -73,7 +74,8 @@ class VideoReader:
         """
         cap = cv2.VideoCapture(str(self.video_path))
         if not cap.isOpened():
-            raise ValueError(f"Could not open video: {self.video_path}")
+            msg = f"Could not open video: {self.video_path}"
+            raise ValueError(msg)
         return cap
 
     def get_info(self) -> VideoInfo:

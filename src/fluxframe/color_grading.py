@@ -53,7 +53,8 @@ class ColorGrader:
         elif self.method == "lut":
             adjusted = self._lut_matching(source, target)
         else:
-            raise ValueError(f"Unknown color grading method: {self.method}")
+            msg = f"Unknown color grading method: {self.method}"
+            raise ValueError(msg)
 
         # Apply strength blending
         adjusted = self._blend_with_strength(source, adjusted)

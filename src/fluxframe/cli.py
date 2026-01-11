@@ -87,7 +87,7 @@ def main() -> None:
         if not Path(args.video).exists():
             sys.exit(f"Error: Video file not found: {args.video}")
 
-        from .config import Config
+        from .config import Config  # noqa: PLC0415
 
         out_dir = args.out_dir if args.out_dir else Path.cwd() / "output"
         out_dir.mkdir(exist_ok=True, parents=True)
@@ -136,15 +136,15 @@ def main() -> None:
             matcher.generate_output(checkpoint)
     elif args.comparison_demo:
         # Comparison demo mode
-        from .demo import run_comparison_demo
+        from .demo import run_comparison_demo  # noqa: PLC0415
         run_comparison_demo(args)
     else:
         # Video generation mode
-        from .config import Config, RenderTarget
-        from .database import ImageDatabase
-        from .pathfinding import find_path
-        from .rendering import render_videos
-        from .search import SearchIndex
+        from .config import Config, RenderTarget  # noqa: PLC0415
+        from .database import ImageDatabase  # noqa: PLC0415
+        from .pathfinding import find_path  # noqa: PLC0415
+        from .rendering import render_videos  # noqa: PLC0415
+        from .search import SearchIndex  # noqa: PLC0415
 
         def parse_target(s: str) -> RenderTarget:
             try:

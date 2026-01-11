@@ -103,14 +103,19 @@ class Config:
     def validate(self) -> None:
         """Validate configuration parameters."""
         if self.fps <= 0:
-            raise ValueError(f"fps must be positive, got {self.fps}")
+            msg = f"fps must be positive, got {self.fps}"
+            raise ValueError(msg)
         if self.duration <= 0:
-            raise ValueError(f"duration must be positive, got {self.duration}")
+            msg = f"duration must be positive, got {self.duration}"
+            raise ValueError(msg)
         if not 0.0 <= self.ssim_weight <= 1.0:
-            raise ValueError(f"ssim_weight must be in [0,1], got {self.ssim_weight}")
+            msg = f"ssim_weight must be in [0,1], got {self.ssim_weight}"
+            raise ValueError(msg)
         if not 0.0 <= self.color_grading_strength <= 1.0:
+            msg = f"color_grading_strength must be in [0,1], got {self.color_grading_strength}"
             raise ValueError(
-                f"color_grading_strength must be in [0,1], got {self.color_grading_strength}"
+                msg
             )
         if self.smoothing_k < 1:
-            raise ValueError(f"smoothing_k must be >= 1, got {self.smoothing_k}")
+            msg = f"smoothing_k must be >= 1, got {self.smoothing_k}"
+            raise ValueError(msg)

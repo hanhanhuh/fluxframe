@@ -27,7 +27,8 @@ class VideoFrameMatcher:
             config: Configuration object with matching settings
         """
         if config.video_path is None:
-            raise ValueError("Config must have video_path set for frame matching")
+            msg = "Config must have video_path set for frame matching"
+            raise ValueError(msg)
 
         self.cfg = config
 
@@ -183,14 +184,14 @@ class VideoFrameMatcher:
         """
         return self.video_info
 
-    def _build_faiss_index(self, image_files: list[Path]) -> None:
+    def _build_faiss_index(self, _image_files: list[Path]) -> None:
         """Build FAISS index (for test compatibility).
 
         The actual index is already built by SearchIndex in __init__.
         This method exists for test compatibility only.
 
         Args:
-            image_files: List of image files (ignored, uses existing index)
+            _image_files: List of image files (ignored, uses existing index)
         """
         # Index is already built - this is a no-op for compatibility
 
@@ -203,7 +204,7 @@ class VideoFrameMatcher:
         Returns:
             Cache key string (deterministic hash)
         """
-        import hashlib
+        import hashlib  # noqa: PLC0415
 
         # Create deterministic hash from config params
         key_data = (
@@ -213,11 +214,11 @@ class VideoFrameMatcher:
         )
         return hashlib.sha256(key_data.encode()).hexdigest()
 
-    def _validate_cache(self, image_files: list[Path]) -> bool:
+    def _validate_cache(self, _image_files: list[Path]) -> bool:
         """Validate cache exists for test compatibility.
 
         Args:
-            image_files: List of image files
+            _image_files: List of image files (unused, checks index file)
 
         Returns:
             True if cache is valid
@@ -241,14 +242,14 @@ class VideoFrameMatcher:
         return self.cfg.img_dir / self.cfg.fn_raw
 
     def find_top_matches(
-        self, frame: np.ndarray, frame_num: int, aspect_ratio: float
+        self, frame: np.ndarray, _frame_num: int, _aspect_ratio: float
     ) -> list[tuple[str, float]]:
         """Find top N matches for a frame.
 
         Args:
             frame: BGR frame from video
-            frame_num: Frame number (unused, for compat)
-            aspect_ratio: Aspect ratio (unused, for compat)
+            _frame_num: Frame number (unused, for compat)
+            _aspect_ratio: Aspect ratio (unused, for compat)
 
         Returns:
             List of (image_path, similarity_score) tuples
@@ -262,7 +263,7 @@ class VideoFrameMatcher:
 
         # Convert to (path, score) tuples
         results = []
-        for dist, idx in zip(distances, indices):
+        for dist, idx in zip(distances, indices, strict=False):
             if idx < len(self.db.filenames):
                 img_path = str(self.cfg.img_dir / self.db.filenames[idx])
                 # Convert distance to similarity score (inverse)
@@ -285,7 +286,7 @@ class VideoFrameMatcher:
 
         # If enforce_unique, pick best unused match
         if self.cfg.enforce_unique:
-            for img_path, score in top_matches:
+            for img_path, _score in top_matches:
                 # Convert path to index
                 img_name = Path(img_path).name
                 if img_name in self.db.filenames:
@@ -382,12 +383,12 @@ class VideoFrameMatcher:
 
         return checkpoint
 
-    def _select_match(self, indices: np.ndarray, distances: np.ndarray) -> int:
+    def _select_match(self, indices: np.ndarray, _distances: np.ndarray) -> int:
         """Select best match from candidates (internal method).
 
         Args:
             indices: Array of candidate indices
-            distances: Array of distances
+            _distances: Array of distances (unused, reserved for future scoring)
 
         Returns:
             Selected image index

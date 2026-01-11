@@ -31,7 +31,8 @@ def create_comparison_grid(
         Grid image with labels
     """
     if not images:
-        raise ValueError("No images provided")
+        msg = "No images provided"
+        raise ValueError(msg)
 
     # Calculate grid dimensions
     n_images = len(images)
@@ -48,7 +49,7 @@ def create_comparison_grid(
     grid = np.ones((rows * total_h, cols * w, 3), dtype=np.uint8) * 255
 
     # Place images and labels
-    for idx, (img, label) in enumerate(zip(images, labels)):
+    for idx, (img, label) in enumerate(zip(images, labels, strict=False)):
         row = idx // cols
         col = idx % cols
 

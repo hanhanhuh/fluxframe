@@ -110,9 +110,15 @@ class SSIMMetric:
         return float(distance)
 
     def compute_batch_distance(
-        self, vecs: np.ndarray, query: np.ndarray, weights: np.ndarray
+        self, vecs: np.ndarray, query: np.ndarray, _weights: np.ndarray
     ) -> np.ndarray:
-        """Compute SSIM distances for batch of vectors."""
+        """Compute SSIM distances for batch of vectors.
+
+        Args:
+            vecs: Batch of image vectors
+            query: Query image vector
+            _weights: Weights (unused, SSIM doesn't use weights)
+        """
         n = len(vecs)
         distances = np.empty(n, dtype=np.float32)
 
@@ -258,9 +264,15 @@ class GISTMetric:
         return float(distance * 1000.0)
 
     def compute_batch_distance(
-        self, vecs: np.ndarray, query: np.ndarray, weights: np.ndarray
+        self, vecs: np.ndarray, query: np.ndarray, _weights: np.ndarray
     ) -> np.ndarray:
-        """Compute GIST distances for batch of vectors."""
+        """Compute GIST distances for batch of vectors.
+
+        Args:
+            vecs: Batch of image vectors
+            query: Query image vector
+            _weights: Weights (unused, GIST doesn't use weights)
+        """
         n = len(vecs)
         distances = np.empty(n, dtype=np.float32)
 
@@ -297,4 +309,5 @@ def create_metric(cfg: Config) -> DistanceMetric:
         return HybridMetric(cfg)
     if cfg.metric == "gist":
         return GISTMetric(cfg)
-    raise ValueError(f"Unknown metric type: {cfg.metric}")
+    msg = f"Unknown metric type: {cfg.metric}"
+    raise ValueError(msg)

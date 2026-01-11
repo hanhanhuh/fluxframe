@@ -128,7 +128,7 @@ class SearchIndex:
         query_weighted = query_vec * self.w_tile
 
         # 2. FAISS coarse search
-        dists_pca, inds = self.index.search(query_weighted.reshape(1, -1), k_candidates)
+        _dists_pca, inds = self.index.search(query_weighted.reshape(1, -1), k_candidates)
         candidates_indices = inds[0]
 
         # Filter invalid (-1) indices
