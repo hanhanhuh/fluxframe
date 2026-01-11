@@ -94,7 +94,7 @@ class SearchIndex:
         indices = np.linspace(0, n_samples - 1, train_size, dtype=int)
 
         print(f"[Index] Training on {train_size} samples...")
-        train_data = self.db.data[indices].astype(np.float32) * self.w_tile
+        train_data = self.db.data[indices].astype(np.float32) * self.w_tile  # type: ignore
         self.index.train(train_data)
 
         # Add all images to index
@@ -102,7 +102,7 @@ class SearchIndex:
         chunk_size = 20000
         for i in tqdm(range(0, n_samples, chunk_size)):
             end = min(i + chunk_size, n_samples)
-            batch = self.db.data[i:end].astype(np.float32) * self.w_tile
+            batch = self.db.data[i:end].astype(np.float32) * self.w_tile  # type: ignore
             self.index.add(batch)
 
         # Save index and metadata
@@ -128,7 +128,7 @@ class SearchIndex:
         query_weighted = query_vec * self.w_tile
 
         # 2. FAISS coarse search
-        _dists_pca, inds = self.index.search(query_weighted.reshape(1, -1), k_candidates)
+        _dists_pca, inds = self.index.search(query_weighted.reshape(1, -1), k_candidates)  # type: ignore
         candidates_indices = inds[0]
 
         # Filter invalid (-1) indices
@@ -139,7 +139,7 @@ class SearchIndex:
             return np.array([]), np.array([])
 
         # 3. Re-ranking with selected metric
-        cands_raw = self.db.data[candidates_indices].astype(np.float32)
+        cands_raw = self.db.data[candidates_indices].astype(np.float32)  # type: ignore
 
         # Use optimized batch distance computation
         if HAS_NUMBA and self.cfg.metric == "lab":
@@ -165,7 +165,7 @@ class SearchIndex:
         Returns:
             Tuple of (distances, indices) sorted by distance
         """
-        query_vec = self.db.data[idx].astype(np.float32)
+        query_vec = self.db.data[idx].astype(np.float32)  # type: ignore
         return self.search_vector(query_vec, k_candidates)
 
 

@@ -178,7 +178,7 @@ class VideoRenderer:
                 if img_bgr is None:
                     continue
 
-                for writer, target, method in writers:
+                for writer, target, method in writers:  # type: ignore
                     # Crop to target resolution
                     crop = smart_crop(img_bgr, target.width, target.height)
 

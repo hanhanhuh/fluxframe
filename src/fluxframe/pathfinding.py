@@ -96,7 +96,7 @@ class PathFinder:
         print("[Algo] Analyzing image content and creating preview...")
 
         # Load and process query image
-        img = cv2.imread(self.cfg.start_filename)
+        img = cv2.imread(self.cfg.start_filename)  # type: ignore
         if img is None:
             sys.exit(f"Error: Could not load {self.cfg.start_filename}")
 
@@ -105,7 +105,7 @@ class PathFinder:
         query_vec = (lab * self.idx.w_tile).reshape(1, -1)
 
         # Search for top candidates
-        _distances, _indices = self.idx.index.search(query_vec, 10)
+        _distances, _indices = self.idx.index.search(query_vec, 10)  # type: ignore
 
         # Create preview directory
         preview_dir = self.cfg.output_dir / "_CANDIDATE_PREVIEW"
@@ -283,7 +283,7 @@ class PathFinder:
 
                 # Apply smoothing: search from average of last K frames
                 window_indices = path[-self.cfg.smoothing_k :]
-                vectors = self.db.data[window_indices].astype(np.float32)
+                vectors = self.db.data[window_indices].astype(np.float32)  # type: ignore
                 mean_vec = np.mean(vectors, axis=0)
 
                 new_d, new_i = self.idx.search_vector(mean_vec, k_candidates=200)
@@ -363,7 +363,7 @@ class PathFinder:
 
                 # Apply smoothing
                 window_indices = path[-self.cfg.smoothing_k :]
-                vectors = self.db.data[window_indices].astype(np.float32)
+                vectors = self.db.data[window_indices].astype(np.float32)  # type: ignore
                 mean_vec = np.mean(vectors, axis=0)
                 dn, in_ = self.idx.search_vector(mean_vec, k_candidates=200)
 

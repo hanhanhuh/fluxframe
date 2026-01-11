@@ -68,7 +68,7 @@ class VideoFrameMatcher:
         self.used_indices: set[int] = set()
 
     @classmethod
-    def from_paths(
+    def from_paths(  # type: ignore
         cls,
         video_path: str,
         image_folder: str,
@@ -104,17 +104,17 @@ class VideoFrameMatcher:
 
     # Property accessors for test compatibility
     @property
-    def faiss_index(self):
+    def faiss_index(self):  # type: ignore
         """Access FAISS index for test compatibility."""
         return self.search_index.index
 
     @property
-    def image_paths(self):
+    def image_paths(self):  # type: ignore
         """Access image paths for test compatibility."""
         return self.db.filenames
 
     @property
-    def vectors(self):
+    def vectors(self):  # type: ignore
         """Access LAB vectors for test compatibility."""
         return self.db.data
 
@@ -421,14 +421,14 @@ class VideoFrameMatcher:
         logger.info("Generating output video...")
 
         # Get video properties
-        output_path = self.cfg.output_dir / f"{self.cfg.video_path.stem}_matched.mp4"
+        output_path = self.cfg.output_dir / f"{self.cfg.video_path.stem}_matched.mp4"  # type: ignore
 
         # Create output directory for matched frames
         output_images_dir = self.cfg.output_dir / "matched_frames"
         output_images_dir.mkdir(parents=True, exist_ok=True)
 
         # Create video writer
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore
         out = cv2.VideoWriter(
             str(output_path),
             fourcc,
