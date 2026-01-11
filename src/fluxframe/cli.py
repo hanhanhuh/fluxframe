@@ -168,7 +168,7 @@ def main() -> None:
             fps_override=args.fps_override,
             save_samples=args.save_samples,
             sample_interval=1,
-            color_grading_methods=color_methods,
+            color_grading_methods=color_methods,  # type: ignore[arg-type]
             color_grading_strength=args.color_strength,
         )
 
@@ -219,7 +219,7 @@ def main() -> None:
             start_filename=args.start_img, fps=args.fps, duration=args.dur,
             weights=tuple(args.weights), enforce_unique=args.no_repeat,
             smoothing_k=args.smoothing, metric=args.metric, ssim_weight=args.ssim_weight,
-            color_grading_methods=color_methods,
+            color_grading_methods=color_methods,  # type: ignore[arg-type]
             color_grading_strength=args.color_strength,
         )
 

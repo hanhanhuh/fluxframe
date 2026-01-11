@@ -132,7 +132,7 @@ class VideoRenderer:
                 w = stack.enter_context(
                     imageio.get_writer(  # type: ignore[arg-type]
                         str(out_path),
-                        format="FFMPEG",
+                        format="FFMPEG",  # type: ignore[arg-type]
                         mode="I",
                         fps=self.cfg.fps,
                         codec="libx264",
@@ -155,7 +155,7 @@ class VideoRenderer:
                     w = stack.enter_context(
                         imageio.get_writer(  # type: ignore[arg-type]
                             str(out_path),
-                            format="FFMPEG",
+                            format="FFMPEG",  # type: ignore[arg-type]
                             mode="I",
                             fps=self.cfg.fps,
                             codec="libx264",
