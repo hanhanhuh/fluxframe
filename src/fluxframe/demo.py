@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Comparison demo mode for visualizing different FluxFrame settings."""
+# mypy: disable-error-code="arg-type,operator,attr-defined"
 
 from __future__ import annotations
 

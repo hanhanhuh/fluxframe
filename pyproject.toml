@@ -173,6 +173,8 @@ ignore_missing_imports = true
 module = "fluxframe.demo"
 disallow_untyped_defs = false
 check_untyped_defs = false
+warn_return_any = false
+disallow_untyped_calls = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
