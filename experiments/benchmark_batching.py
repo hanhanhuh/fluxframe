@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Benchmark batching speedup for ONNX inference."""
 
+import sys
 import time
 from pathlib import Path
 
@@ -13,12 +14,13 @@ model_path = Path.home() / ".cache/fluxframe/mobilenetv3_small_block4.onnx"
 if not model_path.exists():
     print(f"Error: {model_path} not found")
     print("Run fluxframe once to generate the model")
-    exit(1)
+    sys.exit(1)
 
 # Load model
 session = ort.InferenceSession(str(model_path))
 input_name = session.get_inputs()[0].name
 output_name = session.get_outputs()[0].name
+
 
 # Create dummy images
 def preprocess_image(img):
@@ -30,6 +32,7 @@ def preprocess_image(img):
     std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
     normalized = (normalized - mean) / std
     return np.transpose(normalized, (2, 0, 1))
+
 
 # Generate test images
 print("Generating test images...")
@@ -53,7 +56,7 @@ for batch_size in batch_sizes:
 
     start = time.time()
     for i in range(num_batches):
-        batch = test_images[i*batch_size:(i+1)*batch_size]
+        batch = test_images[i * batch_size : (i + 1) * batch_size]
         input_tensor = np.stack(batch, axis=0)  # [batch, 3, 224, 224]
 
         # Run inference

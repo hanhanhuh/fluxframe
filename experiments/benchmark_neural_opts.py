@@ -15,13 +15,14 @@ import numpy as np
 
 # Test parameters - FAST
 NUM_IMAGES = 20  # Reduced for speed
-NUM_WARMUP = 3   # Minimal warmup
+NUM_WARMUP = 3  # Minimal warmup
+
 
 def benchmark_layer_depth():
     """Compare MobileNet layer 3 vs layer 4."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("BENCHMARK 1: Layer Depth (Layer 3 vs Layer 4)")
-    print("="*80)
+    print("=" * 80)
 
     try:
         import torch
@@ -60,31 +61,32 @@ def benchmark_layer_depth():
     print(f"Layer 4: {layer4_time:.2f} ms/image (current)")
     print(f"Speedup: {layer3_time / layer4_time:.2f}x slower with layer 3")
 
+
 def benchmark_pooling_methods():
     """Compare different pooling strategies."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("BENCHMARK 2: Pooling Methods (on CPU)")
-    print("="*80)
+    print("=" * 80)
 
     features = np.random.randn(1, 48, 14, 14).astype(np.float32)
 
     def avg_pool_spatial(feats, grid=2):
-        _, c, h, w = feats.shape
+        _, _c, h, w = feats.shape
         grid_h, grid_w = h // grid, w // grid
         result = []
         for i in range(grid):
             for j in range(grid):
-                cell = feats[0, :, i*grid_h:(i+1)*grid_h, j*grid_w:(j+1)*grid_w]
+                cell = feats[0, :, i * grid_h : (i + 1) * grid_h, j * grid_w : (j + 1) * grid_w]
                 result.append(cell.mean(axis=(1, 2)))
         return np.concatenate(result)
 
     def gem_pool_spatial(feats, grid=2, p=3.0, eps=1e-6):
-        _, c, h, w = feats.shape
+        _, _c, h, w = feats.shape
         grid_h, grid_w = h // grid, w // grid
         result = []
         for i in range(grid):
             for j in range(grid):
-                cell = feats[0, :, i*grid_h:(i+1)*grid_h, j*grid_w:(j+1)*grid_w]
+                cell = feats[0, :, i * grid_h : (i + 1) * grid_h, j * grid_w : (j + 1) * grid_w]
                 cell_clamped = np.maximum(cell, eps)
                 gem = np.power(np.mean(np.power(cell_clamped, p), axis=(1, 2)), 1.0 / p)
                 result.append(gem)
@@ -100,7 +102,7 @@ def benchmark_pooling_methods():
         ("Avg 3x3 grid", lambda: avg_pool_spatial(features, 3), 432),
     ]
 
-    print(f"\nTiming pooling operations...\n")
+    print("\nTiming pooling operations...\n")
 
     for name, func, dim in configs:
         for _ in range(NUM_WARMUP):
@@ -112,11 +114,12 @@ def benchmark_pooling_methods():
 
         print(f"{name:25s} {dim:4d}D  {elapsed:.4f} ms")
 
+
 def benchmark_comparison_sizes():
     """Note: ONNX models have fixed input size, so testing resize impact."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("BENCHMARK 3: Input Resize Impact (Preprocessing)")
-    print("="*80)
+    print("=" * 80)
 
     # Test resize from different source sizes to 224x224
     test_img_720p = np.random.randint(0, 255, (720, 1280, 3), dtype=np.uint8)
@@ -131,7 +134,7 @@ def benchmark_comparison_sizes():
         ("720p → 128px", test_img_720p, 128),
     ]
 
-    print(f"\nTiming resize + normalize...\n")
+    print("\nTiming resize + normalize...\n")
 
     for name, img, target_size in configs:
         for _ in range(NUM_WARMUP):
@@ -154,11 +157,12 @@ def benchmark_comparison_sizes():
 
         print(f"{name:20s}: {elapsed:.2f} ms")
 
+
 def benchmark_batching():
     """Compare single vs batched inference."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("BENCHMARK 4: Batching on CPU")
-    print("="*80)
+    print("=" * 80)
 
     try:
         import onnxruntime as ort
@@ -170,7 +174,7 @@ def benchmark_batching():
     onnx_path = cache_dir / "mobilenetv3_small_block4.onnx"
 
     if not onnx_path.exists():
-        print(f"⚠️  ONNX model not found, skipping")
+        print("⚠️  ONNX model not found, skipping")
         return
 
     sess_options = ort.SessionOptions()
@@ -178,9 +182,7 @@ def benchmark_batching():
     sess_options.intra_op_num_threads = 0
     sess_options.inter_op_num_threads = 1
 
-    session = ort.InferenceSession(
-        str(onnx_path), sess_options, providers=["CPUExecutionProvider"]
-    )
+    session = ort.InferenceSession(str(onnx_path), sess_options, providers=["CPUExecutionProvider"])
 
     input_name = session.get_inputs()[0].name
     output_name = session.get_outputs()[0].name
@@ -210,11 +212,12 @@ def benchmark_batching():
         speedup = baseline_time / time_per_image
         print(f"Batch {batch_size:2d}: {time_per_image:.2f} ms/image  ({speedup:.2f}x speedup)")
 
+
 def benchmark_full_pipeline():
     """Benchmark realistic end-to-end feature extraction."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("BENCHMARK 5: Full Pipeline (realistic)")
-    print("="*80)
+    print("=" * 80)
 
     try:
         import onnxruntime as ort
@@ -226,7 +229,7 @@ def benchmark_full_pipeline():
     onnx_path = cache_dir / "mobilenetv3_small_block4.onnx"
 
     if not onnx_path.exists():
-        print(f"⚠️  ONNX model not found, skipping")
+        print("⚠️  ONNX model not found, skipping")
         return
 
     sess_options = ort.SessionOptions()
@@ -234,9 +237,7 @@ def benchmark_full_pipeline():
     sess_options.intra_op_num_threads = 0
     sess_options.inter_op_num_threads = 1
 
-    session = ort.InferenceSession(
-        str(onnx_path), sess_options, providers=["CPUExecutionProvider"]
-    )
+    session = ort.InferenceSession(str(onnx_path), sess_options, providers=["CPUExecutionProvider"])
 
     input_name = session.get_inputs()[0].name
     output_name = session.get_outputs()[0].name
@@ -254,8 +255,7 @@ def benchmark_full_pipeline():
         input_tensor = np.transpose(normalized, (2, 0, 1))
         input_tensor = np.expand_dims(input_tensor, axis=0)
         features = session.run([output_name], {input_name: input_tensor})[0]
-        pooled = features[0].mean(axis=(1, 2))
-        return pooled
+        return features[0].mean(axis=(1, 2))
 
     configs = [
         ("224px + 2x2 grid", 224),
@@ -264,7 +264,7 @@ def benchmark_full_pipeline():
         ("96px + global", 96),
     ]
 
-    print(f"\nEnd-to-end timing (preprocessing + inference + pooling)...\n")
+    print("\nEnd-to-end timing (preprocessing + inference + pooling)...\n")
 
     baseline = None
     for name, size in configs:
@@ -282,9 +282,10 @@ def benchmark_full_pipeline():
         speedup = baseline / elapsed
         print(f"{name:20s}: {elapsed:.2f} ms/frame  ({speedup:.2f}x vs current)")
 
+
 if __name__ == "__main__":
     print("Neural Network Optimization Benchmark (FAST)")
-    print("="*80)
+    print("=" * 80)
 
     benchmark_layer_depth()
     benchmark_pooling_methods()
@@ -292,9 +293,9 @@ if __name__ == "__main__":
     benchmark_batching()
     benchmark_full_pipeline()
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("SUMMARY & RECOMMENDATIONS")
-    print("="*80)
+    print("=" * 80)
     print("""
 Expected outcomes:
 

@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 import pytest
 
-from fluxframe import VideoImageMatcher
+from fluxframe import VideoFrameMatcher
 
 
 def create_test_video(
@@ -92,7 +92,7 @@ class TestFullPipeline:
             create_test_images(images_folder, num_images=15)
 
             # Run matcher
-            matcher = VideoImageMatcher(
+            matcher = VideoFrameMatcher(
                 str(video_path), str(images_folder), str(output_folder), top_n=5, seed=42
             )
 
@@ -130,7 +130,7 @@ class TestFullPipeline:
             # Create images - some red, some not
             create_test_images(images_folder, num_images=20)
 
-            matcher = VideoImageMatcher(
+            matcher = VideoFrameMatcher(
                 str(video_path), str(images_folder), str(output_folder), top_n=10, seed=42
             )
 
@@ -162,7 +162,7 @@ class TestFullPipeline:
             create_test_video(video_path, num_frames=3)
             create_test_images(images_folder, num_images=10)
 
-            matcher = VideoImageMatcher(
+            matcher = VideoFrameMatcher(
                 str(video_path), str(images_folder), str(output_folder), seed=42
             )
 
@@ -215,7 +215,7 @@ class TestFullPipeline:
             create_test_images(images_folder, num_images=10)
 
             # First run - process only first 2 frames manually
-            matcher1 = VideoImageMatcher(
+            matcher1 = VideoFrameMatcher(
                 str(video_path), str(images_folder), str(output_folder), seed=42
             )
 
@@ -246,7 +246,7 @@ class TestFullPipeline:
             matcher1.save_checkpoint(partial_checkpoint)
 
             # Second run - should resume and complete
-            matcher2 = VideoImageMatcher(
+            matcher2 = VideoFrameMatcher(
                 str(video_path), str(images_folder), str(output_folder), seed=42
             )
 
@@ -274,7 +274,7 @@ class TestFullPipeline:
             create_test_video(video_path, num_frames=4)
             create_test_images(images_folder, num_images=10)
 
-            matcher = VideoImageMatcher(
+            matcher = VideoFrameMatcher(
                 str(video_path),
                 str(images_folder),
                 str(output_folder),

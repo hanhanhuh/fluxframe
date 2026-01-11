@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Test SSIM at different resolutions."""
 
-import numpy as np
-import cv2
-from skimage.metrics import structural_similarity as ssim
 from pathlib import Path
+
+import cv2
+import numpy as np
+from skimage.metrics import structural_similarity as ssim
 
 images_dir = Path("/home/birgit/fiftyone/open-images-v7/train/data")
 image_files = list(images_dir.glob("*.jpg"))[:5]

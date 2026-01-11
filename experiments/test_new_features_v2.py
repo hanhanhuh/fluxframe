@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Fixed version: test spatial histograms, LBP, and wavelet features."""
 
-import numpy as np
-import cv2
+import time
 from pathlib import Path
-from skimage.feature import local_binary_pattern
+
+import cv2
+import numpy as np
 import pywt
 from scipy.spatial.distance import cosine
-import time
+from skimage.feature import local_binary_pattern
 
 
 def compute_spatial_color_histogram_v2(img, grid_size=4, bins=8):
@@ -23,11 +24,11 @@ def compute_spatial_color_histogram_v2(img, grid_size=4, bins=8):
     histograms = []
     for i in range(grid_size):
         for j in range(grid_size):
-            cell = img[i*cell_h:(i+1)*cell_h, j*cell_w:(j+1)*cell_w]
+            cell = img[i * cell_h : (i + 1) * cell_h, j * cell_w : (j + 1) * cell_w]
 
-            hist = cv2.calcHist([cell], [0, 1, 2], None,
-                               [bins, bins, bins],
-                               [0, 256, 0, 256, 0, 256])
+            hist = cv2.calcHist(
+                [cell], [0, 1, 2], None, [bins, bins, bins], [0, 256, 0, 256, 0, 256]
+            )
             hist = hist.flatten()
             hist = hist / (hist.sum() + 1e-7)
             histograms.append(hist)
@@ -49,7 +50,7 @@ def compute_spatial_grayscale_histogram(img, grid_size=4, bins=32):
     histograms = []
     for i in range(grid_size):
         for j in range(grid_size):
-            cell = gray[i*cell_h:(i+1)*cell_h, j*cell_w:(j+1)*cell_w]
+            cell = gray[i * cell_h : (i + 1) * cell_h, j * cell_w : (j + 1) * cell_w]
 
             hist = cv2.calcHist([cell], [0], None, [bins], [0, 256])
             hist = hist.flatten()
@@ -73,10 +74,10 @@ def compute_lbp_histogram_v2(img, grid_size=4, n_points=8, radius=1):
     histograms = []
     for i in range(grid_size):
         for j in range(grid_size):
-            cell = gray[i*cell_h:(i+1)*cell_h, j*cell_w:(j+1)*cell_w]
+            cell = gray[i * cell_h : (i + 1) * cell_h, j * cell_w : (j + 1) * cell_w]
 
             # Compute LBP for this cell
-            lbp = local_binary_pattern(cell, n_points, radius, method='uniform')
+            lbp = local_binary_pattern(cell, n_points, radius, method="uniform")
 
             # Histogram of LBP codes (uniform patterns have n_points+2 bins)
             n_bins = n_points + 2
@@ -88,7 +89,7 @@ def compute_lbp_histogram_v2(img, grid_size=4, n_points=8, radius=1):
     return np.concatenate(histograms)
 
 
-def compute_wavelet_features(img, wavelet='db4', level=3):
+def compute_wavelet_features(img, wavelet="db4", level=3):
     """Wavelet decomposition - unchanged, already working well."""
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     coeffs = pywt.wavedec2(gray, wavelet, level=level)
@@ -120,10 +121,10 @@ print("=" * 70)
 
 # Test all methods
 methods = {
-    'Spatial Color Histogram (4x4, 8 bins)': compute_spatial_color_histogram_v2,
-    'Spatial Grayscale Histogram (4x4, 32 bins)': compute_spatial_grayscale_histogram,
-    'Spatial LBP (4x4 grid)': compute_lbp_histogram_v2,
-    'Wavelet Features': compute_wavelet_features,
+    "Spatial Color Histogram (4x4, 8 bins)": compute_spatial_color_histogram_v2,
+    "Spatial Grayscale Histogram (4x4, 32 bins)": compute_spatial_grayscale_histogram,
+    "Spatial LBP (4x4 grid)": compute_lbp_histogram_v2,
+    "Wavelet Features": compute_wavelet_features,
 }
 
 results = {}
@@ -139,7 +140,7 @@ for method_name, compute_func in methods.items():
 
     print(f"Feature extraction: {elapsed:.3f}s for {len(imgs)} images")
     print(f"Feature dimension: {len(features[0])}")
-    print(f"Speed: {len(imgs)/elapsed:.1f} images/sec")
+    print(f"Speed: {len(imgs) / elapsed:.1f} images/sec")
 
     # Compare image 0 to all others
     similarities = []
@@ -147,7 +148,7 @@ for method_name, compute_func in methods.items():
         sim = 1 - cosine(features[0], features[i])
         similarities.append(sim)
 
-    print(f"\nSimilarities (first 10):")
+    print("\nSimilarities (first 10):")
     for i, sim in enumerate(similarities[:10], 1):
         print(f"  Image 0 vs {i}: {sim:.3f}")
 
@@ -162,12 +163,12 @@ for method_name, compute_func in methods.items():
     discriminative = std > 0.02 and (max(similarities) - min(similarities)) > 0.1
 
     results[method_name] = {
-        'speed': len(imgs)/elapsed,
-        'dimension': len(features[0]),
-        'avg': avg,
-        'std': std,
-        'range': max(similarities) - min(similarities),
-        'discriminative': discriminative
+        "speed": len(imgs) / elapsed,
+        "dimension": len(features[0]),
+        "avg": avg,
+        "std": std,
+        "range": max(similarities) - min(similarities),
+        "discriminative": discriminative,
     }
 
 print("\n" + "=" * 70)
@@ -177,7 +178,9 @@ print(f"{'Method':<45} {'Speed':>10} {'Dims':>8} {'Range':>10} {'Quality':>10}")
 print("-" * 70)
 
 for name, res in results.items():
-    quality = "✓ Good" if res['discriminative'] else "✗ Poor"
-    print(f"{name:<45} {res['speed']:>8.1f}/s {res['dimension']:>8d} {res['range']:>10.3f} {quality:>10}")
+    quality = "✓ Good" if res["discriminative"] else "✗ Poor"
+    print(
+        f"{name:<45} {res['speed']:>8.1f}/s {res['dimension']:>8d} {res['range']:>10.3f} {quality:>10}"
+    )
 
 print("\nRecommendation: Use methods marked '✓ Good'")

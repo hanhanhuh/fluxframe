@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """Create visual comparison of different feature matching methods."""
 
-import numpy as np
-import cv2
-from pathlib import Path
 import sys
+from pathlib import Path
+
+import cv2
+import numpy as np
 
 # Import our feature functions
 sys.path.insert(0, str(Path(__file__).parent))
+from scipy.spatial.distance import cosine
 from test_new_features_v2 import (
+    compute_lbp_histogram_v2,
     compute_spatial_color_histogram_v2,
     compute_spatial_grayscale_histogram,
-    compute_lbp_histogram_v2,
-    compute_wavelet_features
+    compute_wavelet_features,
 )
-from scipy.spatial.distance import cosine
+
 
 def find_best_match(query_features, database_features):
     """Find index of best matching image."""
@@ -29,11 +31,12 @@ def find_best_match(query_features, database_features):
 
     return best_idx, best_sim
 
+
 # Load video frame
 video_path = Path("/home/birgit/Downloads/Winter Cycling： Vantaa, Finland - 4K 60fps.mp4")
 if not video_path.exists():
     print(f"Video not found: {video_path}")
-    exit(1)
+    sys.exit(1)
 
 cap = cv2.VideoCapture(str(video_path))
 cap.set(cv2.CAP_PROP_POS_FRAMES, 100)  # Frame 100
@@ -42,7 +45,7 @@ cap.release()
 
 if not ret:
     print("Failed to read video frame")
-    exit(1)
+    sys.exit(1)
 
 video_frame = cv2.resize(video_frame, (224, 224))
 
@@ -62,10 +65,10 @@ print(f"Loaded {len(db_images)} database images")
 
 # Test different methods
 methods = {
-    'Spatial Grayscale': compute_spatial_grayscale_histogram,
-    'Spatial Color': compute_spatial_color_histogram_v2,
-    'Spatial LBP': compute_lbp_histogram_v2,
-    'Wavelet': compute_wavelet_features,
+    "Spatial Grayscale": compute_spatial_grayscale_histogram,
+    "Spatial Color": compute_spatial_color_histogram_v2,
+    "Spatial LBP": compute_lbp_histogram_v2,
+    "Wavelet": compute_wavelet_features,
 }
 
 print("\nFinding best matches for each method...")
@@ -86,11 +89,7 @@ for method_name, compute_func in methods.items():
     print(f"  Best match: Image {best_idx}")
     print(f"  Similarity: {best_sim:.3f}")
 
-    results[method_name] = {
-        'image': db_images[best_idx],
-        'similarity': best_sim,
-        'index': best_idx
-    }
+    results[method_name] = {"image": db_images[best_idx], "similarity": best_sim, "index": best_idx}
 
 # Create comparison visualization
 print("\nCreating comparison image...")
@@ -109,27 +108,28 @@ canvas = np.ones((total_height, total_width, 3), dtype=np.uint8) * 255
 
 # Add video frame
 y_offset = margin + text_height
-canvas[y_offset:y_offset+img_h, margin:margin+img_w] = video_frame
+canvas[y_offset : y_offset + img_h, margin : margin + img_w] = video_frame
 
 # Add label
-cv2.putText(canvas, "Video Frame", (margin, margin + 30),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+cv2.putText(
+    canvas, "Video Frame", (margin, margin + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2
+)
 
 # Add matched images
 x_offset = margin + img_w + margin
 
 for method_name, result in results.items():
     # Add image
-    canvas[y_offset:y_offset+img_h, x_offset:x_offset+img_w] = result['image']
+    canvas[y_offset : y_offset + img_h, x_offset : x_offset + img_w] = result["image"]
 
     # Add label with similarity
     label = f"{method_name}"
     sim_text = f"sim: {result['similarity']:.3f}"
 
-    cv2.putText(canvas, label, (x_offset, margin + 20),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
-    cv2.putText(canvas, sim_text, (x_offset, margin + 45),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 100, 0), 1)
+    cv2.putText(canvas, label, (x_offset, margin + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+    cv2.putText(
+        canvas, sim_text, (x_offset, margin + 45), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 100, 0), 1
+    )
 
     x_offset += img_w + margin
 
@@ -143,18 +143,23 @@ print("\nCreating individual comparison images...")
 
 for method_name, result in results.items():
     # Side by side: video frame | matched image
-    comparison = np.hstack([video_frame, result['image']])
+    comparison = np.hstack([video_frame, result["image"]])
 
     # Add labels
     h, w = comparison.shape[:2]
     labeled = np.ones((h + 40, w, 3), dtype=np.uint8) * 255
     labeled[40:, :] = comparison
 
-    cv2.putText(labeled, "Video Frame", (10, 25),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-    cv2.putText(labeled, f"{method_name} Match (sim: {result['similarity']:.3f})",
-                (video_frame.shape[1] + 10, 25),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 100, 0), 2)
+    cv2.putText(labeled, "Video Frame", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+    cv2.putText(
+        labeled,
+        f"{method_name} Match (sim: {result['similarity']:.3f})",
+        (video_frame.shape[1] + 10, 25),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (0, 100, 0),
+        2,
+    )
 
     filename = f"comparison_{method_name.lower().replace(' ', '_')}.jpg"
     cv2.imwrite(filename, labeled)

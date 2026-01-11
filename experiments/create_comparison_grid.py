@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Create side-by-side comparison grids from pooling test samples."""
 
+from pathlib import Path
+
 import cv2
 import numpy as np
-from pathlib import Path
 
 # Output directories
 CONFIGS = [
@@ -14,6 +15,7 @@ CONFIGS = [
     ("gem_global", "GeM Global (1x1)", "output_gem_global"),
 ]
 
+
 def create_comparison_grid(sample_num, output_path):
     """Create a comparison grid for a specific sample number."""
 
@@ -21,7 +23,7 @@ def create_comparison_grid(sample_num, output_path):
     images = []
     labels = []
 
-    for config_name, label, output_dir in CONFIGS:
+    for _config_name, label, output_dir in CONFIGS:
         sample_path = Path(output_dir) / "comparison_samples" / f"sample_{sample_num:06d}.jpg"
 
         if sample_path.exists():
@@ -54,7 +56,7 @@ def create_comparison_grid(sample_num, output_path):
 
     # Add labels to images
     labeled_images = []
-    for img, label in zip(resized_images, labels):
+    for img, label in zip(resized_images, labels, strict=False):
         # Create a copy to avoid modifying original
         img_labeled = img.copy()
 
@@ -65,13 +67,15 @@ def create_comparison_grid(sample_num, output_path):
         color = (0, 255, 255)  # Yellow
 
         # Get text size for background
-        (text_w, text_h), baseline = cv2.getTextSize(label, font, font_scale, thickness)
+        (text_w, text_h), _baseline = cv2.getTextSize(label, font, font_scale, thickness)
 
         # Draw background rectangle
         cv2.rectangle(img_labeled, (5, 5), (text_w + 15, text_h + 15), (0, 0, 0), -1)
 
         # Draw text
-        cv2.putText(img_labeled, label, (10, text_h + 10), font, font_scale, color, thickness, cv2.LINE_AA)
+        cv2.putText(
+            img_labeled, label, (10, text_h + 10), font, font_scale, color, thickness, cv2.LINE_AA
+        )
 
         labeled_images.append(img_labeled)
 
@@ -83,6 +87,7 @@ def create_comparison_grid(sample_num, output_path):
     print(f"✓ Created comparison grid: {output_path}")
 
     return True
+
 
 def main():
     """Create comparison grids for all samples."""
@@ -121,9 +126,9 @@ def main():
         create_comparison_grid(sample_num, output_path)
 
     print()
-    print("="*60)
+    print("=" * 60)
     print("Comparison grids created!")
-    print("="*60)
+    print("=" * 60)
     print(f"Location: {comparison_dir}")
     print()
     print(f"Created {len(sample_files)} comparison images")
@@ -133,6 +138,7 @@ def main():
     print("  - Check for matching quality across methods")
     print("  - Look for differences in scene/motion preservation")
     print("  - Note if global pooling loses important spatial info")
+
 
 if __name__ == "__main__":
     main()

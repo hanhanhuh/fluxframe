@@ -164,6 +164,9 @@ class ColorGrader:
     def _lut_matching(self, source: np.ndarray, target: np.ndarray) -> np.ndarray:
         """3D LUT-based color matching (best quality, ~20ms/frame).
 
+        Uses a 3D lookup table to map source colors to target color distribution.
+        More accurate than histogram matching for complex color transformations.
+
         Args:
             source: Source image (BGR)
             target: Target image (BGR)
@@ -171,13 +174,78 @@ class ColorGrader:
         Returns:
             Adjusted source image (BGR)
         """
-        if not HAS_COLOR_MATCHER:
-            # Fallback to histogram matching if library not available
-            return self._histogram_matching(source, target)
+        # Create 3D LUT with 64x64x64 bins (good balance of quality and speed)
+        lut_size = 64
 
-        # TODO: Implement actual LUT matching when color-matcher is available
-        # For now, fallback to color transfer (good quality)
-        return self._color_transfer(source, target)
+        # Convert to RGB for consistent color space
+        source_rgb = cv2.cvtColor(source, cv2.COLOR_BGR2RGB)
+        target_rgb = cv2.cvtColor(target, cv2.COLOR_BGR2RGB)
+
+        # Build histograms for each channel
+        bins = lut_size
+        source_hist_r, _ = np.histogram(source_rgb[:, :, 0].flatten(), bins, (0, 256))
+        source_hist_g, _ = np.histogram(source_rgb[:, :, 1].flatten(), bins, (0, 256))
+        source_hist_b, _ = np.histogram(source_rgb[:, :, 2].flatten(), bins, (0, 256))
+
+        target_hist_r, _ = np.histogram(target_rgb[:, :, 0].flatten(), bins, (0, 256))
+        target_hist_g, _ = np.histogram(target_rgb[:, :, 1].flatten(), bins, (0, 256))
+        target_hist_b, _ = np.histogram(target_rgb[:, :, 2].flatten(), bins, (0, 256))
+
+        # Compute CDFs
+        source_cdf_r = source_hist_r.cumsum()
+        source_cdf_g = source_hist_g.cumsum()
+        source_cdf_b = source_hist_b.cumsum()
+
+        target_cdf_r = target_hist_r.cumsum()
+        target_cdf_g = target_hist_g.cumsum()
+        target_cdf_b = target_hist_b.cumsum()
+
+        # Normalize CDFs
+        source_cdf_r = source_cdf_r / source_cdf_r[-1] if source_cdf_r[-1] > 0 else source_cdf_r
+        source_cdf_g = source_cdf_g / source_cdf_g[-1] if source_cdf_g[-1] > 0 else source_cdf_g
+        source_cdf_b = source_cdf_b / source_cdf_b[-1] if source_cdf_b[-1] > 0 else source_cdf_b
+
+        target_cdf_r = target_cdf_r / target_cdf_r[-1] if target_cdf_r[-1] > 0 else target_cdf_r
+        target_cdf_g = target_cdf_g / target_cdf_g[-1] if target_cdf_g[-1] > 0 else target_cdf_g
+        target_cdf_b = target_cdf_b / target_cdf_b[-1] if target_cdf_b[-1] > 0 else target_cdf_b
+
+        # Create 3D LUT mapping
+        lut_3d = np.zeros((lut_size, lut_size, lut_size, 3), dtype=np.uint8)
+
+        # For each cell in the 3D LUT, find the corresponding target color
+        for r in range(lut_size):
+            for g in range(lut_size):
+                for b in range(lut_size):
+                    # Map each channel independently using CDF matching
+                    # Find closest CDF value in target for each channel
+                    r_mapped = np.argmin(np.abs(target_cdf_r - source_cdf_r[r])) if r < len(source_cdf_r) else r
+                    g_mapped = np.argmin(np.abs(target_cdf_g - source_cdf_g[g])) if g < len(source_cdf_g) else g
+                    b_mapped = np.argmin(np.abs(target_cdf_b - source_cdf_b[b])) if b < len(source_cdf_b) else b
+
+                    # Scale back to 0-255 range
+                    lut_3d[r, g, b] = [
+                        int(r_mapped * 255 / (lut_size - 1)),
+                        int(g_mapped * 255 / (lut_size - 1)),
+                        int(b_mapped * 255 / (lut_size - 1))
+                    ]
+
+        # Apply LUT to source image
+        # Quantize source to LUT indices
+        scale = (lut_size - 1) / 255.0
+        r_idx = (source_rgb[:, :, 0] * scale).astype(np.int32)
+        g_idx = (source_rgb[:, :, 1] * scale).astype(np.int32)
+        b_idx = (source_rgb[:, :, 2] * scale).astype(np.int32)
+
+        # Clip to valid range
+        r_idx = np.clip(r_idx, 0, lut_size - 1)
+        g_idx = np.clip(g_idx, 0, lut_size - 1)
+        b_idx = np.clip(b_idx, 0, lut_size - 1)
+
+        # Lookup colors
+        adjusted_rgb = lut_3d[r_idx, g_idx, b_idx]
+
+        # Convert back to BGR
+        return cv2.cvtColor(adjusted_rgb, cv2.COLOR_RGB2BGR)
 
     def _blend_with_strength(
         self, original: np.ndarray, adjusted: np.ndarray

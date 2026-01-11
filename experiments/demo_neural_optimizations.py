@@ -6,7 +6,6 @@ the best speed/quality tradeoff for MobileNet.
 
 import subprocess
 import time
-from pathlib import Path
 
 # Test video and images
 VIDEO = "/home/birgit/Downloads/Winter Cycling： Vantaa, Finland - 4K 60fps.mp4"
@@ -14,12 +13,17 @@ IMAGES = "/home/birgit/fiftyone/open-images-v7/train/data"
 
 # Common parameters
 BASE_PARAMS = [
-    "--fps-override", "25",
+    "--fps-override",
+    "25",
     "--no-repeat",
-    "--edge-weight", "1.0",  # Neural uses only edge features
-    "--color-weight", "0.0",
-    "--texture-weight", "0.0",
-    "--feature-method", "mobilenet",
+    "--edge-weight",
+    "1.0",  # Neural uses only edge features
+    "--color-weight",
+    "0.0",
+    "--texture-weight",
+    "0.0",
+    "--feature-method",
+    "mobilenet",
     "--demo",  # Use demo mode for speed
     "--skip-output",  # Only benchmark feature extraction
 ]
@@ -48,35 +52,38 @@ CONFIGS = [
     },
 ]
 
+
 def run_config(config):
     """Run a single configuration and measure time."""
     output_dir = f"./output_{config['name']}"
 
-    cmd = [
-        "fluxframe",
-        VIDEO,
-        IMAGES,
-        output_dir,
-    ] + BASE_PARAMS + config["params"]
+    cmd = (
+        [
+            "fluxframe",
+            VIDEO,
+            IMAGES,
+            output_dir,
+        ]
+        + BASE_PARAMS
+        + config["params"]
+    )
 
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"Testing: {config['desc']}")
     print(f"Command: {' '.join(cmd)}")
-    print(f"{'='*80}\n")
+    print(f"{'=' * 80}\n")
 
     start = time.time()
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, check=False, capture_output=True, text=True)
     elapsed = time.time() - start
 
     # Extract timing info from output
-    build_time = None
-    match_time = None
 
-    for line in result.stdout.split('\n') + result.stderr.split('\n'):
-        if 'Building FAISS index' in line or 'Computing features' in line:
+    for line in result.stdout.split("\n") + result.stderr.split("\n"):
+        if "Building FAISS index" in line or "Computing features" in line:
             # Try to extract time from progress bar
             pass
-        if 'Matching frames' in line:
+        if "Matching frames" in line:
             pass
 
     print(f"✓ Completed in {elapsed:.1f}s")
@@ -89,14 +96,15 @@ def run_config(config):
         "stderr": result.stderr,
     }
 
+
 def main():
     """Run all configurations and compare results."""
     print("Neural Network Optimization Comparison")
-    print("="*80)
+    print("=" * 80)
     print(f"Video: {VIDEO}")
     print(f"Images: {IMAGES}")
-    print(f"Mode: Demo (subset of data)")
-    print("="*80)
+    print("Mode: Demo (subset of data)")
+    print("=" * 80)
 
     results = []
 
@@ -109,9 +117,9 @@ def main():
             continue
 
     # Print summary
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("SUMMARY")
-    print("="*80)
+    print("=" * 80)
     print()
 
     if not results:
@@ -123,7 +131,7 @@ def main():
     baseline_time = baseline["total_time"]
 
     print(f"{'Configuration':<40} {'Time (s)':>10} {'Speedup':>10}")
-    print("-"*80)
+    print("-" * 80)
 
     for result in results:
         speedup = baseline_time / result["total_time"]
@@ -137,6 +145,7 @@ def main():
     print()
     print("Note: Quality assessment requires visual inspection of output")
     print("      Run without --skip-output to generate matched videos")
+
 
 if __name__ == "__main__":
     main()

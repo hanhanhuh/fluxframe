@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Test spatial histograms, LBP, and wavelet features for aesthetic matching."""
 
-import numpy as np
-import cv2
+import time
 from pathlib import Path
-from skimage import feature
-from skimage.feature import local_binary_pattern
+
+import cv2
+import numpy as np
 import pywt
 from scipy.spatial.distance import cosine, euclidean
-import time
+from skimage.feature import local_binary_pattern
+
 
 def compute_spatial_color_histogram(img, grid_size=4, bins=32):
     """
@@ -24,12 +25,12 @@ def compute_spatial_color_histogram(img, grid_size=4, bins=32):
     for i in range(grid_size):
         for j in range(grid_size):
             # Extract cell
-            cell = img[i*cell_h:(i+1)*cell_h, j*cell_w:(j+1)*cell_w]
+            cell = img[i * cell_h : (i + 1) * cell_h, j * cell_w : (j + 1) * cell_w]
 
             # Compute 3D color histogram for this cell
-            hist = cv2.calcHist([cell], [0, 1, 2], None,
-                               [bins, bins, bins],
-                               [0, 256, 0, 256, 0, 256])
+            hist = cv2.calcHist(
+                [cell], [0, 1, 2], None, [bins, bins, bins], [0, 256, 0, 256, 0, 256]
+            )
             hist = hist.flatten()
             hist = hist / (hist.sum() + 1e-7)  # Normalize
             histograms.append(hist)
@@ -49,17 +50,15 @@ def compute_lbp_features(img, n_points=24, radius=3, n_bins=256):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # Compute LBP
-    lbp = local_binary_pattern(gray, n_points, radius, method='uniform')
+    lbp = local_binary_pattern(gray, n_points, radius, method="uniform")
 
     # Compute histogram of LBP codes
     hist, _ = np.histogram(lbp.ravel(), bins=n_bins, range=(0, n_bins))
     hist = hist.astype(np.float32)
-    hist = hist / (hist.sum() + 1e-7)
-
-    return hist
+    return hist / (hist.sum() + 1e-7)
 
 
-def compute_wavelet_features(img, wavelet='db4', level=3):
+def compute_wavelet_features(img, wavelet="db4", level=3):
     """
     Wavelet decomposition - captures frequency patterns.
 
@@ -89,14 +88,13 @@ def compute_wavelet_features(img, wavelet='db4', level=3):
     return np.array(features, dtype=np.float32)
 
 
-def compare_features(feat1, feat2, method='cosine'):
+def compare_features(feat1, feat2, method="cosine"):
     """Compare two feature vectors."""
-    if method == 'cosine':
+    if method == "cosine":
         return 1 - cosine(feat1, feat2)  # Convert distance to similarity
-    elif method == 'euclidean':
+    if method == "euclidean":
         return 1 / (1 + euclidean(feat1, feat2))  # Convert to similarity
-    else:
-        return np.dot(feat1, feat2) / (np.linalg.norm(feat1) * np.linalg.norm(feat2))
+    return np.dot(feat1, feat2) / (np.linalg.norm(feat1) * np.linalg.norm(feat2))
 
 
 # Load test images
@@ -115,9 +113,9 @@ print("=" * 70)
 
 # Test all three methods
 methods = {
-    'Spatial Color Histogram (4x4 grid)': compute_spatial_color_histogram,
-    'Local Binary Patterns (LBP)': compute_lbp_features,
-    'Wavelet Features': compute_wavelet_features,
+    "Spatial Color Histogram (4x4 grid)": compute_spatial_color_histogram,
+    "Local Binary Patterns (LBP)": compute_lbp_features,
+    "Wavelet Features": compute_wavelet_features,
 }
 
 for method_name, compute_func in methods.items():
@@ -131,10 +129,10 @@ for method_name, compute_func in methods.items():
 
     print(f"Feature extraction: {elapsed:.3f}s for {len(imgs)} images")
     print(f"Feature dimension: {len(features[0])}")
-    print(f"Speed: {len(imgs)/elapsed:.1f} images/sec")
+    print(f"Speed: {len(imgs) / elapsed:.1f} images/sec")
 
     # Compare image 0 to all others
-    print(f"\nSimilarity of Image 0 to others:")
+    print("\nSimilarity of Image 0 to others:")
     similarities = []
     for i in range(1, len(features)):
         sim = compare_features(features[0], features[i])

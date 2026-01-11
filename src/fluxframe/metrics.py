@@ -164,6 +164,119 @@ class HybridMetric:
         return self.lab_weight * lab_dists + self.ssim_weight * ssim_dists
 
 
+class GISTMetric:
+    """GIST descriptor-based metric for scene-level matching.
+
+    GIST (Generalized Search Tree) uses Gabor filters at multiple scales
+    and orientations to capture the scene's spatial envelope.
+    Best for matching overall scene structure and layout.
+    """
+
+    def __init__(self, cfg: Config):
+        """Initialize GIST metric.
+
+        Args:
+            cfg: Configuration object
+        """
+        self.cfg = cfg
+        self.image_size = 64
+        self.scales = 3
+        self.orientations = 8
+        self.grid_size = 4
+
+    def _compute_gist(self, img: np.ndarray) -> np.ndarray:
+        """Compute GIST descriptor for an image.
+
+        Args:
+            img: Image array (grayscale, H x W)
+
+        Returns:
+            GIST feature vector
+        """
+        features = []
+
+        for scale in range(self.scales):
+            # Create Gabor filters at different orientations
+            for orientation in range(self.orientations):
+                # Gabor filter parameters
+                theta = orientation * np.pi / self.orientations
+                sigma = 2.0 * (scale + 1)
+                lambd = sigma * 1.5
+                gamma = 0.5
+                psi = 0
+
+                # Create Gabor kernel
+                kernel_size = int(6 * sigma + 1)
+                if kernel_size % 2 == 0:
+                    kernel_size += 1
+
+                kernel = cv2.getGaborKernel(
+                    (kernel_size, kernel_size), sigma, theta, lambd, gamma, psi
+                )
+
+                # Apply filter
+                filtered = cv2.filter2D(img, cv2.CV_32F, kernel)
+
+                # Divide into grid and compute mean
+                h, w = filtered.shape
+                cell_h = h // self.grid_size
+                cell_w = w // self.grid_size
+
+                for i in range(self.grid_size):
+                    for j in range(self.grid_size):
+                        cell = filtered[
+                            i * cell_h:(i + 1) * cell_h,
+                            j * cell_w:(j + 1) * cell_w
+                        ]
+                        features.append(np.mean(np.abs(cell)))
+
+        return np.array(features, dtype=np.float32)
+
+    def compute_distance(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
+        """Compute GIST-based distance.
+
+        Args:
+            vec1: First LAB vector (will extract L channel)
+            vec2: Second LAB vector (will extract L channel)
+
+        Returns:
+            Distance score (lower = more similar)
+        """
+        # Extract L channel and reshape to 2D
+        img1 = vec1.reshape(self.image_size, self.image_size, 3)[:, :, 0].astype(np.uint8)
+        img2 = vec2.reshape(self.image_size, self.image_size, 3)[:, :, 0].astype(np.uint8)
+
+        # Compute GIST features
+        gist1 = self._compute_gist(img1)
+        gist2 = self._compute_gist(img2)
+
+        # Euclidean distance
+        diff = gist1 - gist2
+        distance = np.sum(diff * diff)
+
+        # Scale to match LAB distance range
+        return float(distance * 1000.0)
+
+    def compute_batch_distance(
+        self, vecs: np.ndarray, query: np.ndarray, weights: np.ndarray
+    ) -> np.ndarray:
+        """Compute GIST distances for batch of vectors."""
+        n = len(vecs)
+        distances = np.empty(n, dtype=np.float32)
+
+        # Compute query GIST once
+        query_img = query.reshape(self.image_size, self.image_size, 3)[:, :, 0].astype(np.uint8)
+        query_gist = self._compute_gist(query_img)
+
+        for i in range(n):
+            img = vecs[i].reshape(self.image_size, self.image_size, 3)[:, :, 0].astype(np.uint8)
+            gist = self._compute_gist(img)
+            diff = gist - query_gist
+            distances[i] = np.sum(diff * diff) * 1000.0
+
+        return distances
+
+
 def create_metric(cfg: Config) -> DistanceMetric:
     """Factory function to create appropriate distance metric.
 
@@ -182,5 +295,7 @@ def create_metric(cfg: Config) -> DistanceMetric:
         return SSIMMetric(cfg)
     elif cfg.metric == "lab+ssim":
         return HybridMetric(cfg)
+    elif cfg.metric == "gist":
+        return GISTMetric(cfg)
     else:
         raise ValueError(f"Unknown metric type: {cfg.metric}")

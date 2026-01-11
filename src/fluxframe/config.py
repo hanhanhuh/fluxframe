@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Literal
 
 # Type aliases
-MetricType = Literal["lab", "ssim", "lab+ssim"]
+MetricType = Literal["lab", "ssim", "lab+ssim", "gist"]
 ColorGradingMethod = Literal["histogram", "color_transfer", "lut"]
 
 

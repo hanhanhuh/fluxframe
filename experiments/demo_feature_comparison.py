@@ -21,7 +21,7 @@ import numpy as np
 import numpy.typing as npt
 from tqdm import tqdm
 
-from src.fluxframe.matcher import FeatureMethod, ImageMatcher
+from src.fluxframe.matcher import ImageMatcher
 from src.fluxframe.processor import VideoImageMatcher
 
 
@@ -42,7 +42,8 @@ def extract_random_frames(
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     if total_frames == 0:
-        raise ValueError(f"Could not read video: {video_path}")
+        msg = f"Could not read video: {video_path}"
+        raise ValueError(msg)
 
     # Select random frame indices
     np.random.seed(seed)
@@ -119,7 +120,7 @@ def create_comparison_image(
             match_labeled[label_h:, :] = match_resized
 
             # Label with method name and similarity
-            label = f"{method} #{i+1}: {similarity:.3f}"
+            label = f"{method} #{i + 1}: {similarity:.3f}"
             cv2.putText(
                 match_labeled,
                 label,
@@ -145,23 +146,20 @@ def main() -> None:
     )
     parser.add_argument("video", help="Path to input video file")
     parser.add_argument("images", help="Path to folder containing images")
-    parser.add_argument(
-        "--output", default="demo_output", help="Output directory for comparisons"
-    )
-    parser.add_argument(
-        "--frames", type=int, default=5, help="Number of random frames to extract"
-    )
-    parser.add_argument(
-        "--top-k", type=int, default=3, help="Number of top matches to show"
-    )
+    parser.add_argument("--output", default="demo_output", help="Output directory for comparisons")
+    parser.add_argument("--frames", type=int, default=5, help="Number of random frames to extract")
+    parser.add_argument("--top-k", type=int, default=3, help="Number of top matches to show")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument(
-        "--force-mobilenet-export", action="store_true",
-        help="Force re-export of MobileNet ONNX model"
+        "--force-mobilenet-export",
+        action="store_true",
+        help="Force re-export of MobileNet ONNX model",
     )
     parser.add_argument(
-        "--demo-images", type=int, default=None,
-        help="Use only a subset of images (default: use all images)"
+        "--demo-images",
+        type=int,
+        default=None,
+        help="Use only a subset of images (default: use all images)",
     )
 
     args = parser.parse_args()
@@ -170,9 +168,9 @@ def main() -> None:
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print("Feature Extraction Method Comparison Demo")
-    print(f"{'='*80}\n")
+    print(f"{'=' * 80}\n")
 
     # Extract random frames
     print(f"Extracting {args.frames} random frames from: {args.video}")
@@ -192,30 +190,30 @@ def main() -> None:
 
     # Try to add neural methods if available (neural methods use edge_wt=1.0, texture/color not used)
     try:
-        ImageMatcher(
-            feature_method="mobilenet",
-            force_mobilenet_export=args.force_mobilenet_export
-        )
+        ImageMatcher(feature_method="mobilenet", force_mobilenet_export=args.force_mobilenet_export)
         # Add recommended neural configurations
-        configs.extend([
-            ("mobilenet+avg", "mobilenet", "avg", 3.0, 2, 1.0, 0.0, 0.0),
-            ("mobilenet+gem", "mobilenet", "gem", 3.0, 2, 1.0, 0.0, 0.0),
-            ("mobilenet+gem3x3", "mobilenet", "gem", 3.0, 3, 1.0, 0.0, 0.0),
-        ])
+        configs.extend(
+            [
+                ("mobilenet+avg", "mobilenet", "avg", 3.0, 2, 1.0, 0.0, 0.0),
+                ("mobilenet+gem", "mobilenet", "gem", 3.0, 2, 1.0, 0.0, 0.0),
+                ("mobilenet+gem3x3", "mobilenet", "gem", 3.0, 3, 1.0, 0.0, 0.0),
+            ]
+        )
         print("✓ MobileNet available\n")
     except ImportError as e:
         print(f"⚠ MobileNet not available: {e}\n")
 
     try:
         ImageMatcher(
-            feature_method="efficientnet",
-            force_mobilenet_export=args.force_mobilenet_export
+            feature_method="efficientnet", force_mobilenet_export=args.force_mobilenet_export
         )
         # Add EfficientNet configurations
-        configs.extend([
-            ("efficientnet+gem", "efficientnet", "gem", 3.0, 2, 1.0, 0.0, 0.0),
-            ("efficientnet+gem3x3", "efficientnet", "gem", 3.0, 3, 1.0, 0.0, 0.0),
-        ])
+        configs.extend(
+            [
+                ("efficientnet+gem", "efficientnet", "gem", 3.0, 2, 1.0, 0.0, 0.0),
+                ("efficientnet+gem3x3", "efficientnet", "gem", 3.0, 3, 1.0, 0.0, 0.0),
+            ]
+        )
         print("✓ EfficientNet available\n")
     except ImportError as e:
         print(f"⚠ EfficientNet not available: {e}\n")
@@ -227,7 +225,16 @@ def main() -> None:
     indices: dict[str, VideoImageMatcher] = {}
     benchmarks: dict[str, dict[str, Any]] = {}
 
-    for name, feature_method, pooling_method, gem_p, spatial_grid, edge_wt, texture_wt, color_wt in tqdm(configs, desc="Building indices"):
+    for (
+        name,
+        feature_method,
+        pooling_method,
+        gem_p,
+        spatial_grid,
+        edge_wt,
+        texture_wt,
+        color_wt,
+    ) in tqdm(configs, desc="Building indices"):
         # Create processor with this configuration
         t_start = time.perf_counter()
         processor = VideoImageMatcher(
@@ -278,9 +285,9 @@ def main() -> None:
     match_times: dict[str, list[float]] = {name: [] for name in config_names}
 
     for frame_idx, (frame_num, frame) in enumerate(frames):
-        print(f"\n{'─'*80}")
+        print(f"\n{'─' * 80}")
         print(f"Frame {frame_idx + 1}/{len(frames)} (frame #{frame_num})")
-        print(f"{'─'*80}\n")
+        print(f"{'─' * 80}\n")
 
         matches_per_config: dict[str, list[tuple[str, npt.NDArray[Any], float]]] = {}
 
@@ -299,7 +306,7 @@ def main() -> None:
 
             # Load matched images
             matches = []
-            for img_path, similarity in top_matches[:args.top_k]:
+            for img_path, similarity in top_matches[: args.top_k]:
                 img = cv2.imread(img_path)
                 if img is not None:
                     matches.append((img_path, img, similarity))
@@ -307,7 +314,7 @@ def main() -> None:
             matches_per_config[config_name] = matches
 
             # Print results
-            print(f"{config_name:25s} | Top: {top_matches[0][1]:.3f} | {t_match*1000:6.1f}ms")
+            print(f"{config_name:25s} | Top: {top_matches[0][1]:.3f} | {t_match * 1000:6.1f}ms")
 
         # Create comparison image
         comparison = create_comparison_image(frame, matches_per_config, config_names, args.top_k)
@@ -318,19 +325,23 @@ def main() -> None:
         print(f"\n✓ Saved comparison: {output_path}")
 
     # Print summary statistics
-    print(f"\n\n{'='*80}")
+    print(f"\n\n{'=' * 80}")
     print("Summary Statistics")
-    print(f"{'='*80}\n")
+    print(f"{'=' * 80}\n")
 
-    print(f"{'Configuration':<25} {'Vec Size':<10} {'Build (s)':<12} {'Match (ms)':<12} {'Weights':<20}")
-    print(f"{'-'*95}")
+    print(
+        f"{'Configuration':<25} {'Vec Size':<10} {'Build (s)':<12} {'Match (ms)':<12} {'Weights':<20}"
+    )
+    print(f"{'-' * 95}")
 
     for config_name in config_names:
         vector_size = benchmarks[config_name]["vector_size"]
         build_time = benchmarks[config_name]["build_time"]
         avg_match_time = np.mean(match_times[config_name]) * 1000  # Convert to ms
         weights = benchmarks[config_name]["weights"]
-        print(f"{config_name:<25} {vector_size:<10d} {build_time:<12.2f} {avg_match_time:<12.1f} {weights:<20}")
+        print(
+            f"{config_name:<25} {vector_size:<10d} {build_time:<12.2f} {avg_match_time:<12.1f} {weights:<20}"
+        )
 
     print(f"\n✓ Demo complete! Check output directory: {output_dir}\n")
 

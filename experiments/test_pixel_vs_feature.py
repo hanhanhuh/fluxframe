@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Demonstrate why pixel-level metrics fail for image retrieval."""
 
-import numpy as np
+import sys
+from pathlib import Path
+
 import cv2
 from skimage.metrics import structural_similarity as ssim
-from pathlib import Path
 
 # Load two random images from your dataset
 images_dir = Path("/home/birgit/fiftyone/open-images-v7/train/data")
@@ -12,7 +13,7 @@ image_files = list(images_dir.glob("*.jpg"))[:3]
 
 if len(image_files) < 3:
     print("Not enough images found")
-    exit(1)
+    sys.exit(1)
 
 # Load images
 imgs = [cv2.imread(str(f)) for f in image_files[:3]]
@@ -24,7 +25,7 @@ print("=" * 60)
 # Pixel-level: SSIM between completely different images
 print("\n1. SSIM (Pixel-level) between different images:")
 for i in range(len(imgs)):
-    for j in range(i+1, len(imgs)):
+    for j in range(i + 1, len(imgs)):
         # Convert to grayscale for SSIM
         gray_i = cv2.cvtColor(imgs[i], cv2.COLOR_BGR2GRAY)
         gray_j = cv2.cvtColor(imgs[j], cv2.COLOR_BGR2GRAY)

@@ -71,104 +71,129 @@ pip install -e .
 
 ## Quick Start
 
+FluxFrame has two modes that auto-detect based on your input:
+
+### Video Generation Mode (Default)
+
+Generate smooth videos from image collections using perceptual pathfinding.
+
 **Basic usage:**
 ```bash
-fluxframe <video_file> <image_folder> <output_dir>
+fluxframe --dir /path/to/images
 ```
 
-**Compare all feature methods (demo):**
+**With custom settings:**
 ```bash
-python demo_feature_comparison.py <video_file> <image_folder> --frames 5 --demo-images 1000
+fluxframe --dir /path/to/images --out-dir ./output \
+  --formats "1080x1920:vertical.mp4" "1920x1080:horizontal.mp4" \
+  --fps 30 --dur 60 \
+  --metric lab --weights 1.0 2.0 2.0
 ```
-This generates side-by-side comparisons showing how different methods match frames, with performance benchmarks. Use `--demo-images` to limit the image pool for faster testing.
 
-### Examples
-
-**Default (Canny features):**
+**With color grading (LUT method):**
 ```bash
-fluxframe input.mp4 /path/to/images ./output
+fluxframe --dir /path/to/images \
+  --color-grade --color-method lut --color-strength 0.7
+```
+
+**Hybrid LAB+SSIM metric:**
+```bash
+fluxframe --dir /path/to/images \
+  --metric lab+ssim --ssim-weight 0.5
+```
+
+### Frame Matching Mode
+
+Match video frames to similar images (auto-enabled when `--video` is provided).
+
+**Basic usage:**
+```bash
+fluxframe --dir /path/to/images --video input.mp4
 ```
 
 **Best quality (HOG features, no duplicates):**
 ```bash
-fluxframe input.mp4 /path/to/images ./output \
-  --feature-method hog \
-  --no-repeat
+fluxframe --dir /path/to/images --video input.mp4 \
+  --feature-method hog --no-repeat
 ```
 
-**Neural network (EfficientNet with GeM pooling, 3×3 grid):**
+**Neural network (EfficientNet with GeM pooling):**
 ```bash
-fluxframe input.mp4 /path/to/images ./output \
+fluxframe --dir /path/to/images --video input.mp4 \
   --feature-method efficientnet \
-  --pooling-method gem \
-  --gem-p 3.0 \
-  --spatial-grid 3
-```
-
-**Custom FPS (process fewer frames):**
-```bash
-fluxframe input.mp4 /path/to/images ./output \
-  --fps-override 15
-```
-
-**Emphasize color over structure:**
-```bash
-fluxframe input.mp4 /path/to/images ./output \
-  --color-weight 0.8 --edge-weight 0.1 --texture-weight 0.1
-```
-
-**With similarity threshold:**
-```bash
-fluxframe input.mp4 /path/to/images ./output \
-  --no-repeat --threshold 0.5
+  --pooling-method gem --gem-p 3.0 --spatial-grid 3
 ```
 
 **Demo mode (quick test):**
 ```bash
-fluxframe input.mp4 /path/to/images ./output \
+fluxframe --dir /path/to/images --video input.mp4 \
   --demo --demo-seconds 30 --demo-images 500
 ```
 
-**Save comparison samples:**
+### Comparison Demo Mode
+
+Visualize different settings side-by-side.
+
 ```bash
-fluxframe input.mp4 /path/to/images ./output \
-  --save-samples 20 --sample-interval 10
+fluxframe --dir /path/to/images --comparison-demo --demo-frames 10
 ```
+
+This generates comparison grids showing:
+- Different metrics (LAB vs SSIM vs hybrid)
+- Different color grading methods (histogram vs color_transfer vs lut)
+- Different LAB channel weights
 
 ### Command-line Arguments
 
 **Required:**
-- `video`: Path to input video file
-- `images`: Path to folder containing images (flat structure)
-- `output`: Output directory
+- `--dir`: Source image directory
 
-**Optional:**
-- `--feature-method`: `canny` (fast), `spatial_pyramid` (balanced), `hog` (best motion), `spatial_color` (high quality, large datasets), `mobilenet` (neural), `efficientnet` (neural, higher quality) (default: canny)
-- `--pooling-method`: `avg` (average pooling, fast), `gem` (Generalized Mean pooling, better quality for neural methods) (default: avg)
-- `--gem-p`: GeM pooling power parameter (1=avg, 3-4=optimal, ∞=max) (default: 3.0)
-- `--spatial-grid`: Spatial pyramid grid size for neural methods (2=2×2, 3=3×3) (default: 2)
-- `--force-mobilenet-export`: Force re-export of ONNX models (regenerates cached models)
-- `--search-depth`: Number of top matches to find (default: 10)
-- `--use-ivf-index`: Use IndexIVFFlat for 16x faster search (default: false, adds overhead to index building)
-- `--ivf-nlist`: Number of IVF clusters (default: auto = √N × 4)
-- `--ivf-nprobe`: Number of IVF clusters to search (default: auto = nlist/32)
-- `--edge-weight`: Edge similarity weight 0-1 (default: 0.33)*
-- `--texture-weight`: Texture similarity weight 0-1 (default: 0.33)*
-- `--color-weight`: Color similarity weight 0-1 (default: 0.34)*
+**Common:**
+- `--out-dir`: Output directory (default: current directory or ./output)
+- `--video`: Input video file (enables frame matching mode)
+
+**Video Generation Options:**
+- `--formats`: Output formats as WIDTHxHEIGHT:filename (default: "1080x1920:shorts.mp4" "1920x1080:wide.mp4")
+- `--fps`: Frames per second (default: 30)
+- `--dur`: Duration in seconds (default: 10)
+- `--start-img`: Starting image path
+- `--weights`: LAB channel weights L A B (default: 1.0 2.0 2.0)
+- `--smoothing`: Smoothing window size (default: 3)
+- `--allow-duplicates`: Allow duplicate frames in path
+- `--metric`: Distance metric - `lab`, `ssim`, or `lab+ssim` (default: lab)
+- `--ssim-weight`: SSIM weight for hybrid metric (default: 0.5)
+- `--color-grade`: Enable color grading
+- `--color-method`: Color grading method - `histogram` (fast), `color_transfer` (balanced), `lut` (best quality) (default: histogram)
+- `--color-strength`: Color grading strength 0-1 (default: 0.7)
+
+**Frame Matching Options (requires --video):**
+- `--top-n`: Number of top similar images (default: 10)
+- `--edge-weight`: Edge similarity weight 0-1 (default: 0.33)
+- `--texture-weight`: Texture similarity weight 0-1 (default: 0.33)
+- `--color-weight`: Color similarity weight 0-1 (default: 0.34)
 - `--threshold`: Minimum similarity threshold 0-1 (default: 0.0)
-- `--no-repeat`: Use each image only once (zero duplicates guaranteed)
+- `--no-repeat`: Use each image only once
 - `--comparison-size`: Image resize for comparison (default: 256)
-- `--fps-override`: Output FPS by skipping input frames (default: input FPS)
 - `--skip-output`: Only compute matches, skip video generation
 - `--demo`: Process subset for quick testing
 - `--demo-seconds`: Seconds to process in demo (default: 20)
 - `--demo-images`: Images to use in demo (default: 1000)
 - `--checkpoint-batch`: Save progress every N frames (default: 10)
 - `--seed`: Random seed for reproducibility
-- `--save-samples`: Number of frame-match comparison samples to save (default: 0)
-- `--sample-interval`: Save every Nth frame as sample (default: 1)
+- `--num-workers`: Number of worker processes
+- `--fps-override`: Override FPS by skipping frames
+- `--feature-method`: `canny` (fast), `spatial_pyramid`, `hog` (best), `spatial_color`, `mobilenet`, `efficientnet`, `gist` (default: canny)
+- `--pooling-method`: `avg` or `gem` (Generalized Mean) (default: avg)
+- `--gem-p`: GeM pooling power (1=avg, 3-4=optimal) (default: 3.0)
+- `--spatial-grid`: Grid size 2 or 3 (default: 2)
+- `--use-global-pooling`: Use global pooling for neural methods
+- `--force-mobilenet-export`: Force re-export ONNX models
+- `--save-samples`: Number of comparison samples to save (default: 0)
+- `--sample-interval`: Save every Nth frame (default: 1)
 
-*Weights are auto-normalized to sum to 1.0 (ignored for neural methods which only use edge features)
+**Comparison Demo Options:**
+- `--comparison-demo`: Generate comparison grids
+- `--demo-frames`: Number of frames/images to use (default: 5)
 
 ### Feature Methods
 
