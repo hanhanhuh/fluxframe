@@ -84,9 +84,7 @@ class ColorGrader:
 
         return matched
 
-    def _match_histograms_channel(
-        self, source: np.ndarray, target: np.ndarray
-    ) -> np.ndarray:
+    def _match_histograms_channel(self, source: np.ndarray, target: np.ndarray) -> np.ndarray:
         """Match histogram for single channel.
 
         Args:
@@ -234,7 +232,7 @@ class ColorGrader:
                     lut_3d[r, g, b] = [
                         int(r_mapped * 255 / (lut_size - 1)),
                         int(g_mapped * 255 / (lut_size - 1)),
-                        int(b_mapped * 255 / (lut_size - 1))
+                        int(b_mapped * 255 / (lut_size - 1)),
                     ]
 
         # Apply LUT to source image
@@ -255,9 +253,7 @@ class ColorGrader:
         # Convert back to BGR
         return cv2.cvtColor(adjusted_rgb, cv2.COLOR_RGB2BGR)
 
-    def _blend_with_strength(
-        self, original: np.ndarray, adjusted: np.ndarray
-    ) -> np.ndarray:
+    def _blend_with_strength(self, original: np.ndarray, adjusted: np.ndarray) -> np.ndarray:
         """Blend adjusted image with original based on strength parameter.
 
         Args:
@@ -268,13 +264,9 @@ class ColorGrader:
             Blended image
         """
         # Blend: result = original * (1 - strength) + adjusted * strength  # noqa: ERA001
-        return cv2.addWeighted(
-            original, 1.0 - self.strength, adjusted, self.strength, 0
-        )
+        return cv2.addWeighted(original, 1.0 - self.strength, adjusted, self.strength, 0)
 
-    def _temporal_smoothing(
-        self, current: np.ndarray, prev_frame: np.ndarray
-    ) -> np.ndarray:
+    def _temporal_smoothing(self, current: np.ndarray, prev_frame: np.ndarray) -> np.ndarray:
         """Apply temporal smoothing to reduce flicker.
 
         Args:

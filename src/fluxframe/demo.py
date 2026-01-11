@@ -17,9 +17,7 @@ from .search import SearchIndex
 
 
 def create_comparison_grid(
-    images: list[np.ndarray],
-    labels: list[str],
-    cols: int = 3
+    images: list[np.ndarray], labels: list[str], cols: int = 3
 ) -> np.ndarray:
     """Create a grid of images with labels.
 
@@ -61,7 +59,7 @@ def create_comparison_grid(
         # Place image
         y_start = row * total_h
         x_start = col * w
-        grid[y_start:y_start + h, x_start:x_start + w] = img
+        grid[y_start : y_start + h, x_start : x_start + w] = img
 
         # Add label
         label_img = np.ones((label_h, w, 3), dtype=np.uint8) * 240
@@ -73,7 +71,7 @@ def create_comparison_grid(
         text_y = (label_h + text_size[1]) // 2
         cv2.putText(label_img, label, (text_x, text_y), font, font_scale, (0, 0, 0), thickness)
 
-        grid[y_start + h:y_start + total_h, x_start:x_start + w] = label_img
+        grid[y_start + h : y_start + total_h, x_start : x_start + w] = label_img
 
     return grid
 
@@ -88,15 +86,17 @@ def run_comparison_demo(args: argparse.Namespace) -> None:
 
     Args:
         args: Parsed command line arguments
+
+    Returns:
+        None. Creates comparison images in output directory.
     """
     print("\n=== FluxFrame Comparison Demo ===\n")
 
     # Load images
     img_dir = args.dir
-    image_files = sorted([
-        f for f in img_dir.glob("*")
-        if f.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}
-    ])[:args.demo_frames]
+    image_files = sorted(
+        [f for f in img_dir.glob("*") if f.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}]
+    )[: args.demo_frames]
 
     if len(image_files) < 2:
         print("Error: Need at least 2 images for comparison")
@@ -124,7 +124,7 @@ def run_comparison_demo(args: argparse.Namespace) -> None:
             duration=len(image_files),
             metric=metric_name,
             weights=(1.0, 2.0, 2.0),
-            ssim_weight=0.5
+            ssim_weight=0.5,
         )
 
         # Create database and index
@@ -188,7 +188,7 @@ def run_comparison_demo(args: argparse.Namespace) -> None:
                 duration=2,
                 enable_color_grading=True,
                 color_grading_method=method,
-                color_grading_strength=0.7
+                color_grading_strength=0.7,
             )
 
             # Apply color grading
@@ -223,7 +223,7 @@ def run_comparison_demo(args: argparse.Namespace) -> None:
             fps=1,
             duration=len(image_files),
             metric="lab",
-            weights=weights
+            weights=weights,
         )
 
         db = ImageDatabase(cfg)

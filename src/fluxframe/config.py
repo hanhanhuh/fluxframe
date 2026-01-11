@@ -82,7 +82,10 @@ class Config:
     fn_index: str = "cache_faiss.index"
 
     def __post_init__(self) -> None:
-        """Post-initialization processing."""
+        """Post-initialization processing.
+
+        Converts None values to empty lists and handles legacy config.
+        """
         # Convert targets to empty list if None (for matching mode)
         if self.targets is None:
             self.targets = []
@@ -97,11 +100,19 @@ class Config:
 
     @property
     def total_frames(self) -> int:
-        """Total number of frames to generate."""
+        """Total number of frames to generate.
+
+        Returns:
+            fps * duration as integer frame count.
+        """
         return self.fps * self.duration
 
     def validate(self) -> None:
-        """Validate configuration parameters."""
+        """Validate configuration parameters.
+
+        Raises:
+            ValueError: If any parameter is invalid.
+        """
         if self.fps <= 0:
             msg = f"fps must be positive, got {self.fps}"
             raise ValueError(msg)
@@ -113,9 +124,7 @@ class Config:
             raise ValueError(msg)
         if not 0.0 <= self.color_grading_strength <= 1.0:
             msg = f"color_grading_strength must be in [0,1], got {self.color_grading_strength}"
-            raise ValueError(
-                msg
-            )
+            raise ValueError(msg)
         if self.smoothing_k < 1:
             msg = f"smoothing_k must be >= 1, got {self.smoothing_k}"
             raise ValueError(msg)

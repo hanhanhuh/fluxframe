@@ -60,9 +60,16 @@ class LABWeightedDistance:
         self.weights = np.array(cfg.weights, dtype=np.float32)
 
     def compute_distance(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
-        """Compute weighted Euclidean distance."""
+        """Compute weighted Euclidean distance.
+
+        Args:
+            vec1: First LAB vector (flattened 64x64x3 image)
+            vec2: Second LAB vector (flattened 64x64x3 image)
+
+        Returns:
+            Weighted squared Euclidean distance between vectors.
+        """
         diff = vec1 - vec2
-        # Reshape to apply per-channel weights
         diff_reshaped = diff.reshape(-1, 3)
         weighted_diff = diff_reshaped * self.weights
         return float(np.sum(weighted_diff * weighted_diff))
@@ -70,7 +77,16 @@ class LABWeightedDistance:
     def compute_batch_distance(
         self, vecs: np.ndarray, query: np.ndarray, weights: np.ndarray
     ) -> np.ndarray:
-        """Vectorized batch distance computation."""
+        """Vectorized batch distance computation.
+
+        Args:
+            vecs: Batch of LAB vectors (N x dims)
+            query: Query LAB vector (dims,)
+            weights: Channel weights for LAB (tiled to match dims)
+
+        Returns:
+            Array of distances for each vector in batch.
+        """
         diff = vecs - query
         weighted_diff = diff * weights
         return np.einsum("ij,ij->i", weighted_diff, weighted_diff)
@@ -97,15 +113,19 @@ class SSIMMetric:
 
         SSIM returns values in [-1, 1] where 1 = identical.
         We convert to distance: distance = (1 - ssim) * scale_factor
+
+        Args:
+            vec1: First LAB vector (flattened 64x64x3 image)
+            vec2: Second LAB vector (flattened 64x64x3 image)
+
+        Returns:
+            SSIM distance scaled to match LAB range (~0-50000).
         """
-        # Reshape vectors to 2D images (L channel only)
         img1 = vec1.reshape(self.image_size, self.image_size, 3)[:, :, 0]
         img2 = vec2.reshape(self.image_size, self.image_size, 3)[:, :, 0]
 
-        # Compute SSIM on L channel
         ssim_value = ssim(img1, img2, data_range=255)
 
-        # Convert to distance (scale to match LAB distance range ~0-50000)
         distance = (1.0 - ssim_value) * 25000.0
         return float(distance)
 
@@ -115,9 +135,12 @@ class SSIMMetric:
         """Compute SSIM distances for batch of vectors.
 
         Args:
-            vecs: Batch of image vectors
-            query: Query image vector
+            vecs: Batch of image vectors (N x dims)
+            query: Query image vector (dims,)
             _weights: Weights (unused, SSIM doesn't use weights)
+
+        Returns:
+            Array of SSIM distances for each vector in batch.
         """
         n = len(vecs)
         distances = np.empty(n, dtype=np.float32)
@@ -154,7 +177,15 @@ class HybridMetric:
         self.lab_weight = 1.0 - cfg.ssim_weight
 
     def compute_distance(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
-        """Compute weighted combination of LAB and SSIM distances."""
+        """Compute weighted combination of LAB and SSIM distances.
+
+        Args:
+            vec1: First LAB vector (flattened 64x64x3 image)
+            vec2: Second LAB vector (flattened 64x64x3 image)
+
+        Returns:
+            Weighted hybrid distance combining LAB and SSIM.
+        """
         lab_dist = self.lab_metric.compute_distance(vec1, vec2)
         ssim_dist = self.ssim_metric.compute_distance(vec1, vec2)
 
@@ -163,7 +194,16 @@ class HybridMetric:
     def compute_batch_distance(
         self, vecs: np.ndarray, query: np.ndarray, weights: np.ndarray
     ) -> np.ndarray:
-        """Compute hybrid distances for batch of vectors."""
+        """Compute hybrid distances for batch of vectors.
+
+        Args:
+            vecs: Batch of LAB vectors (N x dims)
+            query: Query LAB vector (dims,)
+            weights: Channel weights for LAB component
+
+        Returns:
+            Array of weighted hybrid distances for each vector in batch.
+        """
         lab_dists = self.lab_metric.compute_batch_distance(vecs, query, weights)
         ssim_dists = self.ssim_metric.compute_batch_distance(vecs, query, weights)
 
@@ -231,8 +271,7 @@ class GISTMetric:
                 for i in range(self.grid_size):
                     for j in range(self.grid_size):
                         cell = filtered[
-                            i * cell_h:(i + 1) * cell_h,
-                            j * cell_w:(j + 1) * cell_w
+                            i * cell_h : (i + 1) * cell_h, j * cell_w : (j + 1) * cell_w
                         ]
                         features.append(np.mean(np.abs(cell)))
 
@@ -269,9 +308,12 @@ class GISTMetric:
         """Compute GIST distances for batch of vectors.
 
         Args:
-            vecs: Batch of image vectors
-            query: Query image vector
+            vecs: Batch of image vectors (N x dims)
+            query: Query image vector (dims,)
             _weights: Weights (unused, GIST doesn't use weights)
+
+        Returns:
+            Array of GIST distances for each vector in batch.
         """
         n = len(vecs)
         distances = np.empty(n, dtype=np.float32)

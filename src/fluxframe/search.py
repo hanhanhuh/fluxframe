@@ -108,9 +108,7 @@ class SearchIndex:
         # Save index and metadata
         faiss.write_index(self.index, str(self.index_path))
         with self.meta_path.open("w") as f:
-            json.dump(
-                {"weights": list(self.cfg.weights), "metric": self.cfg.metric}, f
-            )
+            json.dump({"weights": list(self.cfg.weights), "metric": self.cfg.metric}, f)
 
     def search_vector(
         self, query_vec: np.ndarray, k_candidates: int = 200
@@ -153,14 +151,14 @@ class SearchIndex:
         sort_order = np.argsort(dists_sq)
         return dists_sq[sort_order], candidates_indices[sort_order]
 
-    def search_id(
-        self, idx: int, k_candidates: int = 200
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def search_id(self, idx: int, k_candidates: int = 200) -> tuple[np.ndarray, np.ndarray]:
         """Search based on existing image ID.
 
         Args:
             idx: Database index of query image
             k_candidates: Number of candidates to retrieve
+        Returns:
+            Tuple of (distances array, indices array).
 
         Returns:
             Tuple of (distances, indices) sorted by distance

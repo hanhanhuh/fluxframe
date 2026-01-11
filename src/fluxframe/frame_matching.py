@@ -45,9 +45,7 @@ class VideoFrameMatcher:
         )
 
         # Initialize checkpoint manager
-        self.checkpoint_manager = CheckpointManager(
-            config.output_dir / "checkpoint.json"
-        )
+        self.checkpoint_manager = CheckpointManager(config.output_dir / "checkpoint.json")
 
         # Initialize database and search index
         logger.info(f"Loading image database from {config.img_dir}")
@@ -105,62 +103,110 @@ class VideoFrameMatcher:
     # Property accessors for test compatibility
     @property
     def faiss_index(self):  # type: ignore
-        """Access FAISS index for test compatibility."""
+        """Access FAISS index for test compatibility.
+
+        Returns:
+            FAISS index object from search index.
+        """
         return self.search_index.index
 
     @property
     def image_paths(self):  # type: ignore
-        """Access image paths for test compatibility."""
+        """Access image paths for test compatibility.
+
+        Returns:
+            List of image filenames from database.
+        """
         return self.db.filenames
 
     @property
     def vectors(self):  # type: ignore
-        """Access LAB vectors for test compatibility."""
+        """Access LAB vectors for test compatibility.
+
+        Returns:
+            Memory-mapped array of feature vectors.
+        """
         return self.db.data
 
     @property
     def video_info(self) -> VideoInfo:
-        """Get video information."""
+        """Get video information.
+
+        Returns:
+            VideoInfo object with fps, dimensions, and frame count.
+        """
         return self.video_reader.get_info()
 
     @property
     def similarity_threshold(self) -> float:
-        """Backward compat: map threshold to similarity_threshold."""
+        """Backward compat: map threshold to similarity_threshold.
+
+        Returns:
+            Similarity threshold value from config.
+        """
         return self.cfg.threshold
 
     @property
     def no_repeat(self) -> bool:
-        """Backward compat: map enforce_unique to no_repeat."""
+        """Backward compat: map enforce_unique to no_repeat.
+
+        Returns:
+            True if duplicates should be prevented.
+        """
         return self.cfg.enforce_unique
 
     @property
     def demo_mode(self) -> bool:
-        """Access demo mode setting."""
+        """Access demo mode setting.
+
+        Returns:
+            True if demo mode is enabled.
+        """
         return self.cfg.demo_mode
 
     @property
     def demo_seconds(self) -> int:
-        """Access demo seconds setting."""
+        """Access demo seconds setting.
+
+        Returns:
+            Number of seconds to process in demo mode.
+        """
         return self.cfg.demo_seconds
 
     @property
     def demo_images(self) -> int:
-        """Access demo images setting."""
+        """Access demo images setting.
+
+        Returns:
+            Number of images to use in demo mode.
+        """
         return self.cfg.demo_images
 
     @property
     def fps_override(self) -> float | None:
-        """Access FPS override setting."""
+        """Access FPS override setting.
+
+        Returns:
+            Target FPS for frame skipping, or None if disabled.
+        """
         return self.cfg.fps_override
 
     @property
     def input_fps(self) -> float:
-        """Get input video FPS."""
+        """Get input video FPS.
+
+        Returns:
+            Frames per second of input video.
+        """
         return self.video_info.fps
 
     @property
     def input_fps_skip_interval(self) -> int:
-        """Calculate skip interval based on FPS override."""
+        """Calculate skip interval based on FPS override.
+
+        Returns:
+            Number of frames to skip between processed frames (1 = process all frames).
+        """
         if self.cfg.fps_override is not None:
             return max(1, round(self.input_fps / self.cfg.fps_override))
         return 1
@@ -188,7 +234,7 @@ class VideoFrameMatcher:
         """Build FAISS index (for test compatibility).
 
         The actual index is already built by SearchIndex in __init__.
-        This method exists for test compatibility only.
+        This method is a no-op that exists only for test compatibility.
 
         Args:
             _image_files: List of image files (ignored, uses existing index)
@@ -208,9 +254,7 @@ class VideoFrameMatcher:
 
         # Create deterministic hash from config params
         key_data = (
-            str(sorted(str(f) for f in image_files))
-            + str(self.cfg.weights)
-            + str(self.cfg.metric)
+            str(sorted(str(f) for f in image_files)) + str(self.cfg.weights) + str(self.cfg.metric)
         )
         return hashlib.sha256(key_data.encode()).hexdigest()
 
@@ -228,17 +272,29 @@ class VideoFrameMatcher:
 
     @property
     def cache_metadata_path(self) -> Path:
-        """Get cache metadata path for test compatibility."""
+        """Get cache metadata path for test compatibility.
+
+        Returns:
+            Path to cache metadata JSON file.
+        """
         return self.cfg.img_dir / self.cfg.fn_meta
 
     @property
     def faiss_index_path(self) -> Path:
-        """Get FAISS index path for test compatibility."""
+        """Get FAISS index path for test compatibility.
+
+        Returns:
+            Path to FAISS index binary file.
+        """
         return self.cfg.img_dir / self.cfg.fn_index
 
     @property
     def vectors_path(self) -> Path:
-        """Get vectors path for test compatibility."""
+        """Get vectors path for test compatibility.
+
+        Returns:
+            Path to raw feature vectors file.
+        """
         return self.cfg.img_dir / self.cfg.fn_raw
 
     def find_top_matches(
@@ -270,7 +326,7 @@ class VideoFrameMatcher:
                 similarity = 1.0 / (1.0 + float(dist))
                 results.append((img_path, similarity))
 
-        return results[:self.cfg.top_n]
+        return results[: self.cfg.top_n]
 
     def select_match(self, top_matches: list[tuple[str, float]]) -> str | None:
         """Select best match from candidates.
@@ -356,9 +412,7 @@ class VideoFrameMatcher:
                     if self.cfg.enforce_unique
                     else self.cfg.top_n
                 )
-                distances, indices = self.search_index.search_vector(
-                    frame_lab, k_candidates=k
-                )
+                distances, indices = self.search_index.search_vector(frame_lab, k_candidates=k)
 
                 # Select best match
                 selected_idx = self._select_match(indices, distances)
@@ -367,11 +421,13 @@ class VideoFrameMatcher:
                 similarity = 1.0 / (1.0 + float(distances[0]))
 
                 # Save result
-                checkpoint["frames"].append({
-                    "frame_number": frame_idx,
-                    "selected_image": self.db.filenames[selected_idx],
-                    "similarity_score": similarity,
-                })
+                checkpoint["frames"].append(
+                    {
+                        "frame_number": frame_idx,
+                        "selected_image": self.db.filenames[selected_idx],
+                        "similarity_score": similarity,
+                    }
+                )
 
                 # Mark as used
                 if self.cfg.enforce_unique:
@@ -392,24 +448,23 @@ class VideoFrameMatcher:
     def _select_match(self, indices: np.ndarray, _distances: np.ndarray) -> int:
         """Select best match from candidates (internal method).
 
+        If enforce_unique is enabled, filters out previously used images
+        and returns the best unused match. Otherwise returns the best match.
+
         Args:
-            indices: Array of candidate indices
+            indices: Array of candidate indices sorted by similarity
             _distances: Array of distances (unused, reserved for future scoring)
 
         Returns:
-            Selected image index
+            Index of selected image in database.
         """
         if self.cfg.enforce_unique:
-            # Filter out used indices
             valid_mask = np.array([idx not in self.used_indices for idx in indices])
             if not valid_mask.any():
-                # All used - pick best even if used
                 return int(indices[0])
 
             valid_indices = indices[valid_mask]
-            # Return best unused
             return int(valid_indices[0])
-        # Return best match
         return int(indices[0])
 
     def generate_output(self, checkpoint: dict) -> None:

@@ -86,11 +86,17 @@ class PathFinder:
     def _visual_search_fallback(self, target_name: str) -> int:
         """Perform visual search when exact filename not found.
 
+        Displays top 10 candidates and prompts user to select one.
+        Calls sys.exit() if image cannot be loaded.
+
         Args:
             target_name: Name of target file
 
         Returns:
-            Index of selected image
+            Index of selected image from user choice.
+
+        Raises:
+            SystemExit: If start image file cannot be loaded.
         """
         print(f"[Algo] '{target_name}' not found in cache.")
         print("[Algo] Analyzing image content and creating preview...")
@@ -156,6 +162,8 @@ class PathFinder:
     def _auto_adjust_threshold(self, start_node: int) -> None:
         """Automatically adjust threshold based on dataset density.
 
+        Modifies cfg.threshold if current value is too restrictive.
+
         Args:
             start_node: Starting node index
         """
@@ -177,11 +185,9 @@ class PathFinder:
             start_node: Starting node index
 
         Returns:
-            List of image indices
+            List of image indices forming the generated path.
         """
-        print(
-            f"[Algo] Starting pathfinding from: {self.db.filenames[start_node]}"
-        )
+        print(f"[Algo] Starting pathfinding from: {self.db.filenames[start_node]}")
         print(f"[Algo] Smoothing (Momentum): Last {self.cfg.smoothing_k} frames")
 
         # Initialize state
@@ -226,7 +232,7 @@ class PathFinder:
             pbar: Progress bar
 
         Returns:
-            True if successful, False otherwise
+            True if found unvisited neighbor, False if exhausted.
         """
         last = path[-1]
         _d, i = self.idx.search_id(last, k_candidates=50)
@@ -262,7 +268,7 @@ class PathFinder:
             max_reached_frame: Maximum frame count reached so far
 
         Returns:
-            True to continue, False to stop
+            True to continue searching, False to terminate.
         """
         current_state = stack[-1]
         c_inds, c_dists = current_state[1], current_state[2]
@@ -317,7 +323,7 @@ class PathFinder:
             max_reached_frame: Maximum frame count reached so far
 
         Returns:
-            True to continue, False to stop
+            True to continue searching, False to terminate.
         """
         frames_lost = max_reached_frame - len(path)
 
@@ -337,9 +343,7 @@ class PathFinder:
         # Beyond leash: force move to escape local minimum
         return self._force_move(path, visited, stack, pbar)
 
-    def _force_move(
-        self, path: list[int], visited: set[int], stack: list, pbar: tqdm
-    ) -> bool:
+    def _force_move(self, path: list[int], visited: set[int], stack: list, pbar: tqdm) -> bool:
         """Force move to escape local minimum (beyond leash).
 
         Args:
@@ -349,7 +353,7 @@ class PathFinder:
             pbar: Progress bar
 
         Returns:
-            True if successful, False otherwise
+            True if found unvisited candidate, False if exhausted.
         """
         current_state = stack[-1]
         c_inds = current_state[1]

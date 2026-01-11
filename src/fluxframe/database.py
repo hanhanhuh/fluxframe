@@ -114,6 +114,11 @@ class ImageDatabase:
         print(f"[DB] Complete: {len(valid_files)} images indexed")
 
     def __len__(self) -> int:
+        """Get number of images in database.
+
+        Returns:
+            Number of images.
+        """
         """Return number of images in database."""
         return len(self.filenames)
 

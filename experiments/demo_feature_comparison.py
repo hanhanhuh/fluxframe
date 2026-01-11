@@ -19,10 +19,9 @@ from typing import Any
 import cv2
 import numpy as np
 import numpy.typing as npt
-from tqdm import tqdm
-
 from src.fluxframe.matcher import ImageMatcher
 from src.fluxframe.processor import VideoImageMatcher
+from tqdm import tqdm
 
 
 def extract_random_frames(

@@ -10,6 +10,7 @@ from .frame_matching import VideoFrameMatcher
 
 
 def main() -> None:
+    """CLI entry point for FluxFrame."""
     """CLI entry point."""
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", datefmt="%H:%M:%S"
@@ -18,7 +19,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="FluxFrame - Smooth video generation and frame matching",
         epilog="Mode auto-detection: Provide --video for frame matching mode, "
-               "or --dir only for video generation mode."
+        "or --dir only for video generation mode.",
     )
 
     # Common arguments
@@ -26,8 +27,9 @@ def main() -> None:
     parser.add_argument("--out-dir", type=Path, default=None, help="Output directory")
 
     # Video input (optional - triggers frame matching mode)
-    parser.add_argument("--video", type=str, default=None,
-                       help="Input video file (enables frame matching mode)")
+    parser.add_argument(
+        "--video", type=str, default=None, help="Input video file (enables frame matching mode)"
+    )
 
     # Metric configuration (shared)
     metric_group = parser.add_argument_group("metric options")
@@ -44,19 +46,13 @@ def main() -> None:
     metric_group.add_argument(
         "--ssim-weight", type=float, default=0.5, help="SSIM weight for lab+ssim"
     )
-    metric_group.add_argument(
-        "--threshold", type=float, default=0.0, help="Similarity threshold"
-    )
-    metric_group.add_argument(
-        "--seed", type=int, default=None, help="Random seed"
-    )
+    metric_group.add_argument("--threshold", type=float, default=0.0, help="Similarity threshold")
+    metric_group.add_argument("--seed", type=int, default=None, help="Random seed")
 
     # Output configuration (shared)
     output_group = parser.add_argument_group("output options")
     output_group.add_argument("--fps", type=int, default=30, help="Output FPS")
-    output_group.add_argument(
-        "--no-repeat", action="store_true", help="Use each image only once"
-    )
+    output_group.add_argument("--no-repeat", action="store_true", help="Use each image only once")
     output_group.add_argument(
         "--color-grade",
         nargs="*",
@@ -86,36 +82,22 @@ def main() -> None:
         help="Output formats as WIDTHxHEIGHT:filename",
     )
     gen_group.add_argument("--dur", type=int, default=10, help="Duration in seconds")
-    gen_group.add_argument(
-        "--start-img", type=str, default=None, help="Starting image path"
-    )
+    gen_group.add_argument("--start-img", type=str, default=None, help="Starting image path")
     gen_group.add_argument(
         "--smoothing", type=int, default=3, help="Smoothness (1=greedy, 3-5=smooth)"
     )
 
     # Matching-specific options
     match_group = parser.add_argument_group("matching options (with --video)")
-    match_group.add_argument(
-        "--fps-override", type=float, default=None, help="Override input FPS"
-    )
-    match_group.add_argument(
-        "--checkpoint-batch", type=int, default=10, help="Save every N frames"
-    )
-    match_group.add_argument(
-        "--skip-output", action="store_true", help="Skip output generation"
-    )
+    match_group.add_argument("--fps-override", type=float, default=None, help="Override input FPS")
+    match_group.add_argument("--checkpoint-batch", type=int, default=10, help="Save every N frames")
+    match_group.add_argument("--skip-output", action="store_true", help="Skip output generation")
 
     # Debug options
     debug_group = parser.add_argument_group("debug options")
-    debug_group.add_argument(
-        "--top-n", type=int, default=10, help="Search depth (candidates)"
-    )
-    debug_group.add_argument(
-        "--demo-limit", type=int, default=None, help="Limit for quick testing"
-    )
-    debug_group.add_argument(
-        "--save-samples", type=int, default=0, help="Save comparison samples"
-    )
+    debug_group.add_argument("--top-n", type=int, default=10, help="Search depth (candidates)")
+    debug_group.add_argument("--demo-limit", type=int, default=None, help="Limit for quick testing")
+    debug_group.add_argument("--save-samples", type=int, default=0, help="Save comparison samples")
     debug_group.add_argument(
         "--comparison-demo",
         action="store_true",
@@ -184,6 +166,7 @@ def main() -> None:
     elif args.comparison_demo:
         # Comparison demo mode
         from .demo import run_comparison_demo  # noqa: PLC0415
+
         run_comparison_demo(args)
     else:
         # Video generation mode
@@ -215,10 +198,17 @@ def main() -> None:
             color_methods = []
 
         cfg = Config(
-            img_dir=args.dir, output_dir=out_dir, targets=[parse_target(s) for s in args.formats],
-            start_filename=args.start_img, fps=args.fps, duration=args.dur,
-            weights=tuple(args.weights), enforce_unique=args.no_repeat,
-            smoothing_k=args.smoothing, metric=args.metric, ssim_weight=args.ssim_weight,
+            img_dir=args.dir,
+            output_dir=out_dir,
+            targets=[parse_target(s) for s in args.formats],
+            start_filename=args.start_img,
+            fps=args.fps,
+            duration=args.dur,
+            weights=tuple(args.weights),
+            enforce_unique=args.no_repeat,
+            smoothing_k=args.smoothing,
+            metric=args.metric,
+            ssim_weight=args.ssim_weight,
             color_grading_methods=color_methods,  # type: ignore[arg-type]
             color_grading_strength=args.color_strength,
         )
