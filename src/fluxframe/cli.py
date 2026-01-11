@@ -43,10 +43,15 @@ def main() -> None:
     output_group = parser.add_argument_group("output options")
     output_group.add_argument("--fps", type=int, default=30, help="Output FPS")
     output_group.add_argument("--no-repeat", action="store_true", help="Use each image only once")
-    output_group.add_argument("--color-grade", action="store_true", help="Enable color grading")
-    output_group.add_argument("--color-method", type=str, choices=["histogram", "color_transfer", "lut"],
-                             default="histogram", help="Color grading method")
+    output_group.add_argument("--color-grade", nargs="*", metavar="METHOD",
+                             choices=["histogram", "color_transfer", "lut"],
+                             help="Enable color grading with methods (e.g., --color-grade histogram lut). "
+                                  "Generates base + one video per method. Empty = all methods")
     output_group.add_argument("--color-strength", type=float, default=0.7, help="Color grading strength (0-1)")
+
+    # Legacy support (deprecated)
+    output_group.add_argument("--color-method", type=str, choices=["histogram", "color_transfer", "lut"],
+                             default="histogram", help="[DEPRECATED] Use --color-grade instead")
 
     # Generation-specific options
     gen_group = parser.add_argument_group("generation options (without --video)")
@@ -82,16 +87,32 @@ def main() -> None:
         if not Path(args.video).exists():
             sys.exit(f"Error: Video file not found: {args.video}")
 
-        output_dir = str(args.out_dir) if args.out_dir else "./output"
+        from .config import Config
 
-        matcher = VideoFrameMatcher(
-            video_path=args.video,
-            image_folder=str(args.dir),
-            output_dir=output_dir,
+        out_dir = args.out_dir if args.out_dir else Path.cwd() / "output"
+        out_dir.mkdir(exist_ok=True, parents=True)
+
+        # Parse color grading methods
+        if args.color_grade is not None:
+            if len(args.color_grade) == 0:
+                # --color-grade without args = all methods
+                color_methods = ["histogram", "color_transfer", "lut"]
+            else:
+                color_methods = args.color_grade
+        else:
+            color_methods = []
+
+        cfg = Config(
+            img_dir=args.dir,
+            output_dir=out_dir,
+            video_path=Path(args.video),
+            targets=[],  # Not generating
             metric=args.metric,
-            top_n=args.top_n,
+            weights=tuple(args.weights),
+            ssim_weight=args.ssim_weight,
             threshold=args.threshold,
-            no_repeat=args.no_repeat,
+            top_n=args.top_n,
+            enforce_unique=args.no_repeat,
             demo_mode=args.demo_limit is not None,
             demo_seconds=args.demo_limit or 20,
             demo_images=args.demo_limit or 1000,
@@ -100,9 +121,16 @@ def main() -> None:
             fps_override=args.fps_override,
             save_samples=args.save_samples,
             sample_interval=1,
-            weights=tuple(args.weights),
-            ssim_weight=args.ssim_weight,
+            color_grading_methods=color_methods,
+            color_grading_strength=args.color_strength,
         )
+
+        try:
+            cfg.validate()
+        except ValueError as e:
+            sys.exit(f"Configuration error: {e}")
+
+        matcher = VideoFrameMatcher(cfg)
         checkpoint = matcher.process()
         if not args.skip_output:
             matcher.generate_output(checkpoint)
@@ -129,12 +157,22 @@ def main() -> None:
         out_dir = args.out_dir if args.out_dir else Path.cwd()
         out_dir.mkdir(exist_ok=True, parents=True)
 
+        # Parse color grading methods
+        if args.color_grade is not None:
+            if len(args.color_grade) == 0:
+                # --color-grade without args = all methods
+                color_methods = ["histogram", "color_transfer", "lut"]
+            else:
+                color_methods = args.color_grade
+        else:
+            color_methods = []
+
         cfg = Config(
             img_dir=args.dir, output_dir=out_dir, targets=[parse_target(s) for s in args.formats],
             start_filename=args.start_img, fps=args.fps, duration=args.dur,
             weights=tuple(args.weights), enforce_unique=args.no_repeat,
             smoothing_k=args.smoothing, metric=args.metric, ssim_weight=args.ssim_weight,
-            enable_color_grading=args.color_grade, color_grading_method=args.color_method,
+            color_grading_methods=color_methods,
             color_grading_strength=args.color_strength,
         )
 

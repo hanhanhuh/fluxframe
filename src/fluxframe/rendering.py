@@ -68,10 +68,25 @@ class VideoRenderer:
         """
         self.cfg = cfg
         self.db = db
-        self.color_grader = create_color_grader(cfg)
+
+        # Create color graders for each method
+        self.color_graders: dict[str, ColorGrader] = {}
+        for method in cfg.color_grading_methods:
+            grader_cfg = Config(
+                img_dir=cfg.img_dir,
+                output_dir=cfg.output_dir,
+                color_grading_method=method,
+                color_grading_strength=cfg.color_grading_strength,
+                enable_color_grading=True,
+            )
+            self.color_graders[method] = ColorGrader(grader_cfg)
 
     def render_videos(self, path_indices: list[int]) -> None:
-        """Render all target formats simultaneously.
+        """Render all target formats simultaneously with multiple color grading variants.
+
+        For each target, generates:
+        - Base version (no color grading)
+        - One version per color grading method specified in config
 
         Args:
             path_indices: List of image indices forming the path
@@ -85,22 +100,29 @@ class VideoRenderer:
             print(f"[Render] Creating output directory: {self.cfg.output_dir}")
             self.cfg.output_dir.mkdir(parents=True, exist_ok=True)
 
-        print(f"[Render] Starting rendering for {len(self.cfg.targets)} formats ({len(path_indices)} frames)...")
+        # Calculate total number of output videos
+        variants_per_target = 1 + len(self.color_graders)  # base + graded versions
+        total_outputs = len(self.cfg.targets) * variants_per_target
+
+        print(f"[Render] Starting rendering for {len(self.cfg.targets)} formats x {variants_per_target} variants = {total_outputs} videos ({len(path_indices)} frames)...")
         print(f"[Render] Output location: {self.cfg.output_dir.absolute()}")
 
-        if self.color_grader:
-            print(
-                f"[Render] Color grading enabled: method={self.cfg.color_grading_method}, "
-                f"strength={self.cfg.color_grading_strength}"
-            )
+        if self.color_graders:
+            methods_str = ", ".join(self.color_graders.keys())
+            print(f"[Render] Color grading methods: {methods_str} (strength={self.cfg.color_grading_strength})")
+            print(f"[Render] Plus base (non-graded) version for each format")
 
         # Open all video writers
         with ExitStack() as stack:
+            # Structure: [(writer, target, grading_method), ...]
+            # grading_method is None for base version, or method name for graded
             writers = []
-            for t in self.cfg.targets:
-                out_path = self.cfg.output_dir / t.filename
 
-                print(f"  -> {t.filename} ({t.width}x{t.height})")
+            for t in self.cfg.targets:
+                # Base version (no color grading)
+                base_filename = t.filename
+                out_path = self.cfg.output_dir / base_filename
+                print(f"  -> {base_filename} ({t.width}x{t.height}) [base]")
 
                 w = stack.enter_context(
                     imageio.get_writer(
@@ -114,10 +136,34 @@ class VideoRenderer:
                         macro_block_size=None,
                     )
                 )
-                writers.append((w, t))
+                writers.append((w, t, None))  # None = no color grading
+
+                # Color graded versions
+                for method in self.color_graders.keys():
+                    # Insert method name before extension
+                    stem = t.filename.rsplit(".", 1)[0] if "." in t.filename else t.filename
+                    ext = t.filename.rsplit(".", 1)[1] if "." in t.filename else "mp4"
+                    graded_filename = f"{stem}_{method}.{ext}"
+                    out_path = self.cfg.output_dir / graded_filename
+                    print(f"  -> {graded_filename} ({t.width}x{t.height}) [{method}]")
+
+                    w = stack.enter_context(
+                        imageio.get_writer(
+                            str(out_path),
+                            format="FFMPEG",
+                            mode="I",
+                            fps=self.cfg.fps,
+                            codec="libx264",
+                            pixelformat="yuv420p",
+                            output_params=["-crf", "18", "-preset", "medium"],
+                            macro_block_size=None,
+                        )
+                    )
+                    writers.append((w, t, method))
 
             # Render frames
-            prev_frames: dict[str, np.ndarray] = {}  # Track previous frame per target
+            # Track previous frames per (target.filename, method) for temporal smoothing
+            prev_frames: dict[tuple[str, str | None], np.ndarray] = {}
 
             for frame_idx, idx in enumerate(tqdm(path_indices, desc="Encoding")):
                 fname = self.db.filenames[idx]
@@ -127,20 +173,23 @@ class VideoRenderer:
                 if img_bgr is None:
                     continue
 
-                for writer, target in writers:
+                for writer, target, method in writers:
                     # Crop to target resolution
                     crop = smart_crop(img_bgr, target.width, target.height)
 
-                    # Apply color grading (progressive, frame-to-frame)
-                    if self.color_grader and frame_idx > 0:
-                        prev_frame = prev_frames.get(target.filename)
+                    # Apply color grading if method specified
+                    if method is not None and frame_idx > 0:
+                        key = (target.filename, method)
+                        prev_frame = prev_frames.get(key)
                         if prev_frame is not None:
-                            crop = self.color_grader.match_colors(
+                            grader = self.color_graders[method]
+                            crop = grader.match_colors(
                                 source=crop, target=prev_frame, prev_frame=prev_frame
                             )
 
                     # Store for next iteration
-                    prev_frames[target.filename] = crop.copy()
+                    key = (target.filename, method)
+                    prev_frames[key] = crop.copy()
 
                     # Convert to RGB and write
                     crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)

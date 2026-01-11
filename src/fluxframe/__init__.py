@@ -12,6 +12,8 @@ from .color_grading import ColorGrader, create_color_grader
 # Video frame matching
 from .frame_matching import VideoFrameMatcher
 from .models import FrameResult, VideoInfo
+from .checkpoint import CheckpointManager
+from .video import VideoReader
 
 __version__ = "0.2.0"
 
@@ -33,4 +35,6 @@ __all__ = [
     "VideoFrameMatcher",
     "FrameResult",
     "VideoInfo",
+    "CheckpointManager",
+    "VideoReader",
 ]

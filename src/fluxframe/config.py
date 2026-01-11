@@ -23,14 +23,14 @@ class RenderTarget:
 
 @dataclass
 class Config:
-    """Main configuration for video generation pipeline."""
+    """Main configuration for video generation and frame matching."""
 
     # Required Settings
     img_dir: Path
-    targets: list[RenderTarget]
-
-    # Video Settings
     output_dir: Path
+    targets: list[RenderTarget] = None  # Empty for matching mode
+
+    # Video Generation Settings
     fps: int = 30
     duration: int = 10
 
@@ -39,20 +39,37 @@ class Config:
     threshold: float = 40000.0
     start_filename: str | None = None
 
-    # Smoothing Settings
+    # Smoothing Settings (generation only)
     smoothing_k: int = 1  # 1 = Off (Greedy), 3-5 = Smooth, 10+ = Slow Drift
 
     # Unique Frame Enforcement
     enforce_unique: bool = True
 
-    # NEW: Metric Configuration
+    # Metric Configuration (shared)
     metric: MetricType = "lab"  # Default to LAB for backward compat
     ssim_weight: float = 0.5  # Weight for hybrid metric (0.0-1.0)
 
-    # NEW: Color Grading Configuration
+    # Color Grading Configuration (shared)
+    # If empty list, no color grading is applied
+    # If list contains methods, generates one video per method plus ungraded
+    color_grading_methods: list[ColorGradingMethod] = None
+    color_grading_strength: float = 0.7  # 0.0-1.0
+
+    # Legacy single-method support (deprecated, use color_grading_methods)
     enable_color_grading: bool = False
     color_grading_method: ColorGradingMethod = "histogram"
-    color_grading_strength: float = 0.7  # 0.0-1.0
+
+    # Frame Matching Settings (None = not in matching mode)
+    video_path: Path | None = None
+    top_n: int = 10  # Number of candidates to consider
+    checkpoint_batch_size: int = 10
+    fps_override: float | None = None
+    demo_mode: bool = False
+    demo_seconds: int = 20
+    demo_images: int = 1000
+    save_samples: int = 0
+    sample_interval: int = 1
+    seed: int | None = None
 
     # Internal Constants
     dims_raw: int = 64 * 64 * 3
@@ -63,6 +80,20 @@ class Config:
     fn_names: str = "cache_filenames.json"
     fn_meta: str = "cache_meta.json"
     fn_index: str = "cache_faiss.index"
+
+    def __post_init__(self):
+        """Post-initialization processing."""
+        # Convert targets to empty list if None (for matching mode)
+        if self.targets is None:
+            self.targets = []
+
+        # Convert color_grading_methods to empty list if None
+        if self.color_grading_methods is None:
+            # Legacy: if enable_color_grading is True, use single method
+            if self.enable_color_grading:
+                self.color_grading_methods = [self.color_grading_method]
+            else:
+                self.color_grading_methods = []
 
     @property
     def total_frames(self) -> int:
