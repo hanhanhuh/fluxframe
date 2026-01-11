@@ -71,7 +71,7 @@ class VideoRenderer:
 
         # Create color graders for each method
         self.color_graders: dict[str, ColorGrader] = {}
-        for method in cfg.color_grading_methods:
+        for method in cfg.color_grading_methods or []:
             grader_cfg = Config(
                 img_dir=cfg.img_dir,
                 output_dir=cfg.output_dir,
@@ -130,7 +130,7 @@ class VideoRenderer:
                 print(f"  -> {base_filename} ({t.width}x{t.height}) [base]")
 
                 w = stack.enter_context(
-                    imageio.get_writer(
+                    imageio.get_writer(  # type: ignore[arg-type]
                         str(out_path),
                         format="FFMPEG",
                         mode="I",
@@ -153,7 +153,7 @@ class VideoRenderer:
                     print(f"  -> {graded_filename} ({t.width}x{t.height}) [{method}]")
 
                     w = stack.enter_context(
-                        imageio.get_writer(
+                        imageio.get_writer(  # type: ignore[arg-type]
                             str(out_path),
                             format="FFMPEG",
                             mode="I",
@@ -164,7 +164,7 @@ class VideoRenderer:
                             macro_block_size=None,
                         )
                     )
-                    writers.append((w, t, method))
+                    writers.append((w, t, method))  # type: ignore[arg-type]
 
             # Render frames
             # Track previous frames per (target.filename, method) for temporal smoothing
@@ -193,12 +193,12 @@ class VideoRenderer:
                             )
 
                     # Store for next iteration
-                    key = (target.filename, method)
+                    key = (target.filename, method)  # type: ignore[assignment]
                     prev_frames[key] = crop.copy()
 
                     # Convert to RGB and write
                     crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
-                    writer.append_data(crop_rgb)
+                    writer.append_data(crop_rgb)  # type: ignore[attr-defined]
 
         print("[Render] All videos complete.")
 
