@@ -115,7 +115,9 @@ class TestFAISSCaching:
             video_path.touch()
             images_path.mkdir()
 
-            matcher = VideoFrameMatcher.from_paths(str(video_path), str(images_path), str(output_path))
+            matcher = VideoFrameMatcher.from_paths(
+                str(video_path), str(images_path), str(output_path)
+            )
 
             # Create test image
             img1 = images_path / "img1.jpg"
@@ -140,7 +142,9 @@ class TestFAISSCaching:
                 img_path = images_path / f"img{i}.jpg"
                 create_test_image(img_path, color=(i * 50, i * 50, i * 50))
 
-            matcher = VideoFrameMatcher.from_paths(str(video_path), str(images_path), str(output_path))
+            matcher = VideoFrameMatcher.from_paths(
+                str(video_path), str(images_path), str(output_path)
+            )
 
             image_files = matcher.get_image_files()
             assert len(image_files) == 5
@@ -159,7 +163,9 @@ class TestFAISSCaching:
             assert matcher.vectors_path.exists()
 
             # Create new matcher and load from cache
-            matcher2 = VideoFrameMatcher.from_paths(str(video_path), str(images_path), str(output_path))
+            matcher2 = VideoFrameMatcher.from_paths(
+                str(video_path), str(images_path), str(output_path)
+            )
 
             matcher2._build_faiss_index(image_files)
 
@@ -482,7 +488,9 @@ class TestCheckpointIntegrity:
             video_path.touch()
             images_path.mkdir()
 
-            matcher = VideoFrameMatcher.from_paths(str(video_path), str(images_path), str(output_path))
+            matcher = VideoFrameMatcher.from_paths(
+                str(video_path), str(images_path), str(output_path)
+            )
 
             # Create checkpoint with null selection
             checkpoint = {
