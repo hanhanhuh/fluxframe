@@ -168,6 +168,12 @@ ignore_missing_imports = true
 module = "imageio.*"
 ignore_missing_imports = true
 
+# Demo code - experimental, types not critical
+[[tool.mypy.overrides]]
+module = "fluxframe.demo"
+disallow_untyped_defs = false
+check_untyped_defs = false
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
