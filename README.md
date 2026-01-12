@@ -35,6 +35,28 @@ Optimized for CPU performance with FAISS vector search, memory-mapped indexes, a
 
 ## Installation
 
+### System Requirements
+
+FluxFrame requires **FFmpeg** to be installed on your system for video rendering:
+
+**macOS:**
+```bash
+brew install ffmpeg
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install ffmpeg
+```
+
+**Windows:**
+Download from [ffmpeg.org](https://ffmpeg.org/download.html) or use [Chocolatey](https://chocolatey.org/):
+```bash
+choco install ffmpeg
+```
+
+### Python Package
+
 Using [uv](https://github.com/astral-sh/uv) (recommended):
 
 ```bash
