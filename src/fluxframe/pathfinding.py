@@ -38,6 +38,54 @@ class PathFinder:
         self.k_candidates = 200  # Starting k value, adjusts dynamically
         self.consecutive_failures = 0  # Track failures to adjust k
 
+    def _exhaustive_search_vector(
+        self, query_vec: np.ndarray, k_candidates: int
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Perform exhaustive search by temporarily increasing nprobe for IVF indices.
+
+        For IndexIVFFlat, increases nprobe to search all partitions.
+        For other indices, delegates to normal search.
+
+        Args:
+            query_vec: Query vector to search with
+            k_candidates: Number of candidates to retrieve
+
+        Returns:
+            Tuple of (distances, indices) sorted by distance
+        """
+        import faiss
+
+        # Check if we're using an IVF index that needs nprobe adjustment
+        index = self.idx.index
+        if isinstance(index, faiss.IndexPreTransform):
+            base_index = faiss.downcast_index(index.index)
+            if isinstance(base_index, faiss.IndexIVFFlat):
+                # Store original nprobe and set to maximum for exhaustive search
+                old_nprobe = base_index.nprobe
+                base_index.nprobe = base_index.nlist  # Search ALL partitions
+                try:
+                    result = self.idx.search_vector(query_vec, k_candidates)
+                finally:
+                    # Always restore original nprobe
+                    base_index.nprobe = old_nprobe
+                return result
+
+        # For non-IVF indices, just use normal search
+        return self.idx.search_vector(query_vec, k_candidates)
+
+    def _exhaustive_search_id(self, idx: int, k_candidates: int) -> tuple[np.ndarray, np.ndarray]:
+        """Perform exhaustive search by ID.
+
+        Args:
+            idx: Database index to search from
+            k_candidates: Number of candidates to retrieve
+
+        Returns:
+            Tuple of (distances, indices) sorted by distance
+        """
+        query_vec = self.db.data[idx].astype(np.float32)  # type: ignore
+        return self._exhaustive_search_vector(query_vec, k_candidates)
+
     def find_path(self) -> list[int]:
         """Find path through image space using leashed backtracking.
 
@@ -266,31 +314,34 @@ class PathFinder:
         """
         last = path[-1]
 
-        # Start with current k_candidates, then expand if needed
-        # Always include database size as final fallback
-        k_sizes = [self.k_candidates]
-        for k in [1000, 5000, 10000, 50000, 100000, len(self.db.filenames)]:
-            if k > self.k_candidates:
-                k_sizes.append(k)
+        # First try with current k_candidates using standard search
+        _d, i = self.idx.search_id(last, k_candidates=self.k_candidates)
+        for cand in i:
+            if cand not in visited:
+                visited.add(cand)
+                path.append(cand)
 
-        # Ensure we always try at least the full database
-        if k_sizes[-1] < len(self.db.filenames):
-            k_sizes.append(len(self.db.filenames))
+                # Reset stack with ID search
+                dn, in_ = self.idx.search_id(cand, k_candidates=self.k_candidates)
+                stack.append([cand, in_, dn, 0])
+                pbar.update(1)
+                self.consecutive_failures = 0  # Success - reset counter
+                return True
 
-        for k_size in k_sizes:
-            _d, i = self.idx.search_id(last, k_candidates=min(k_size, len(self.db.filenames)))
+        # If standard search failed, use exhaustive search as final fallback
+        _d, i = self._exhaustive_search_id(last, k_candidates=len(self.db.filenames))
 
-            for cand in i:
-                if cand not in visited:
-                    visited.add(cand)
-                    path.append(cand)
+        for cand in i:
+            if cand not in visited:
+                visited.add(cand)
+                path.append(cand)
 
-                    # Reset stack with ID search
-                    dn, in_ = self.idx.search_id(cand, k_candidates=self.k_candidates)
-                    stack.append([cand, in_, dn, 0])
-                    pbar.update(1)
-                    self.consecutive_failures = 0  # Success - reset counter
-                    return True
+                # Reset stack with ID search
+                dn, in_ = self.idx.search_id(cand, k_candidates=self.k_candidates)
+                stack.append([cand, in_, dn, 0])
+                pbar.update(1)
+                self.consecutive_failures = 0  # Success - reset counter
+                return True
 
         # All images have been visited
         self.consecutive_failures += 1
@@ -419,36 +470,38 @@ class PathFinder:
                 pbar.update(1)
                 return True
 
-        # Current candidates all visited - search progressively larger neighborhoods
+        # Current candidates all visited - search from smoothed window
         window_indices = path[-self.cfg.smoothing_k :]
         vectors = self.db.data[window_indices].astype(np.float32)  # type: ignore
         mean_vec = np.mean(vectors, axis=0)
 
-        # Build list of k sizes to try, starting from current k_candidates
-        # Always include database size as final fallback
-        k_sizes = []
-        for k in [1000, 5000, 10000, 50000, 100000, len(self.db.filenames)]:
-            if k > self.k_candidates:
-                k_sizes.append(k)
+        # Try standard search first
+        new_d, new_i = self.idx.search_vector(mean_vec, k_candidates=self.k_candidates)
+        for cand in new_i:
+            if cand != -1 and cand not in visited:
+                visited.add(cand)
+                path.append(cand)
 
-        # Ensure we always try at least the full database
-        if not k_sizes or k_sizes[-1] < len(self.db.filenames):
-            k_sizes.append(len(self.db.filenames))
+                # Get new neighborhood for this candidate
+                dn, in_ = self.idx.search_vector(mean_vec, k_candidates=self.k_candidates)
+                stack.append([cand, in_, dn, 0])
+                self.consecutive_failures = 0  # Success - reset counter
+                pbar.update(1)
+                return True
 
-        for k_size in k_sizes:
-            new_d, new_i = self.idx.search_vector(mean_vec, k_candidates=min(k_size, len(self.db.filenames)))
+        # If standard search failed, use exhaustive search as final fallback
+        new_d, new_i = self._exhaustive_search_vector(mean_vec, k_candidates=len(self.db.filenames))
+        for cand in new_i:
+            if cand != -1 and cand not in visited:
+                visited.add(cand)
+                path.append(cand)
 
-            for cand in new_i:
-                if cand != -1 and cand not in visited:
-                    visited.add(cand)
-                    path.append(cand)
-
-                    # Get new neighborhood for this candidate
-                    dn, in_ = self.idx.search_vector(mean_vec, k_candidates=self.k_candidates)
-                    stack.append([cand, in_, dn, 0])
-                    self.consecutive_failures = 0  # Success - reset counter
-                    pbar.update(1)
-                    return True
+                # Get new neighborhood for this candidate
+                dn, in_ = self.idx.search_vector(mean_vec, k_candidates=self.k_candidates)
+                stack.append([cand, in_, dn, 0])
+                self.consecutive_failures = 0  # Success - reset counter
+                pbar.update(1)
+                return True
 
         # All images have been visited
         self.consecutive_failures += 1
