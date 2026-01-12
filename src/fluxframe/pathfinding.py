@@ -35,6 +35,8 @@ class PathFinder:
         self.cfg = cfg
         self.db = db
         self.idx = idx
+        self.k_candidates = 200  # Starting k value, adjusts dynamically
+        self.consecutive_failures = 0  # Track failures to adjust k
 
     def find_path(self) -> list[int]:
         """Find path through image space using leashed backtracking.
@@ -178,6 +180,30 @@ class PathFinder:
                 print(f"[Algo] Auto-tune: Threshold {self.cfg.threshold:.0f} -> {suggested:.0f}")
                 self.cfg.threshold = suggested
 
+    def _adjust_k_candidates(self, current_frame: int) -> None:
+        """Dynamically adjust k_candidates based on search difficulty.
+
+        Increases k when struggling to find candidates, decreases when finding easily.
+
+        Args:
+            current_frame: Current frame number in path
+        """
+        # Increase k if we're having trouble finding candidates
+        if self.consecutive_failures >= 3:
+            old_k = self.k_candidates
+            self.k_candidates = min(self.k_candidates * 2, len(self.db.filenames))
+            if old_k != self.k_candidates:
+                print(f"[Algo] Expanding search: k={old_k} -> {self.k_candidates}")
+            self.consecutive_failures = 0
+
+        # Decrease k periodically if we've been succeeding (every 1000 frames)
+        # This keeps searches efficient when we move to a new dense region
+        elif current_frame % 1000 == 0 and self.k_candidates > 200:
+            old_k = self.k_candidates
+            self.k_candidates = max(200, self.k_candidates // 2)
+            if old_k != self.k_candidates:
+                print(f"[Algo] Reducing search: k={old_k} -> {self.k_candidates}")
+
     def _search_loop(self, start_node: int) -> list[int]:
         """Main pathfinding loop with leashed backtracking.
 
@@ -189,13 +215,14 @@ class PathFinder:
         """
         print(f"[Algo] Starting pathfinding from: {self.db.filenames[start_node]}")
         print(f"[Algo] Smoothing (Momentum): Last {self.cfg.smoothing_k} frames")
+        print(f"[Algo] Dynamic k_candidates: starts at {self.k_candidates}")
 
         # Initialize state
         path = [start_node]
         visited = {start_node}
 
         # Initialize stack with ID search
-        d, i = self.idx.search_id(start_node, k_candidates=200)
+        d, i = self.idx.search_id(start_node, k_candidates=self.k_candidates)
         stack = [[start_node, i, d, 0]]
 
         max_reached_frame = 1
@@ -206,6 +233,9 @@ class PathFinder:
         # Main loop
         while len(path) < self.cfg.total_frames:
             max_reached_frame = max(max_reached_frame, len(path))
+
+            # Dynamically adjust k_candidates based on progress
+            self._adjust_k_candidates(len(path))
 
             # Emergency stack refill
             if not stack:
@@ -232,22 +262,36 @@ class PathFinder:
             pbar: Progress bar
 
         Returns:
-            True if found unvisited neighbor, False if exhausted.
+            True if found unvisited neighbor, False if all images exhausted.
         """
         last = path[-1]
-        _d, i = self.idx.search_id(last, k_candidates=50)
 
-        for cand in i:
-            if cand not in visited:
-                visited.add(cand)
-                path.append(cand)
+        # Start with current k_candidates, then expand if needed
+        k_sizes = [self.k_candidates]
+        if self.k_candidates < 1000:
+            k_sizes.append(1000)
+        if self.k_candidates < 5000:
+            k_sizes.append(5000)
+        if self.k_candidates < 10000:
+            k_sizes.append(10000)
 
-                # Reset stack with ID search
-                dn, in_ = self.idx.search_id(cand, k_candidates=200)
-                stack.append([cand, in_, dn, 0])
-                pbar.update(1)
-                return True
+        for k_size in k_sizes:
+            _d, i = self.idx.search_id(last, k_candidates=min(k_size, len(self.db.filenames)))
 
+            for cand in i:
+                if cand not in visited:
+                    visited.add(cand)
+                    path.append(cand)
+
+                    # Reset stack with ID search
+                    dn, in_ = self.idx.search_id(cand, k_candidates=self.k_candidates)
+                    stack.append([cand, in_, dn, 0])
+                    pbar.update(1)
+                    self.consecutive_failures = 0  # Success - reset counter
+                    return True
+
+        # All images have been visited
+        self.consecutive_failures += 1
         return False
 
     def _try_extend_path(
@@ -292,10 +336,11 @@ class PathFinder:
                 vectors = self.db.data[window_indices].astype(np.float32)  # type: ignore
                 mean_vec = np.mean(vectors, axis=0)
 
-                new_d, new_i = self.idx.search_vector(mean_vec, k_candidates=200)
+                new_d, new_i = self.idx.search_vector(mean_vec, k_candidates=self.k_candidates)
                 stack.append([cand, new_i, new_d, 0])
 
                 found_next = True
+                self.consecutive_failures = 0  # Success - reset counter
                 pbar.update(1)
                 break
 
@@ -353,12 +398,12 @@ class PathFinder:
             pbar: Progress bar
 
         Returns:
-            True if found unvisited candidate, False if exhausted.
+            True if found unvisited candidate, False if all images exhausted.
         """
         current_state = stack[-1]
         c_inds = current_state[1]
 
-        # Find any unvisited candidate (ignore threshold)
+        # First try current candidates (ignore threshold but require unvisited)
         for k in range(len(c_inds)):
             cand = c_inds[k]
             if cand != -1 and cand not in visited:
@@ -369,24 +414,41 @@ class PathFinder:
                 window_indices = path[-self.cfg.smoothing_k :]
                 vectors = self.db.data[window_indices].astype(np.float32)  # type: ignore
                 mean_vec = np.mean(vectors, axis=0)
-                dn, in_ = self.idx.search_vector(mean_vec, k_candidates=200)
+                dn, in_ = self.idx.search_vector(mean_vec, k_candidates=self.k_candidates)
 
                 stack.append([cand, in_, dn, 0])
+                self.consecutive_failures = 0  # Success - reset counter
                 pbar.update(1)
                 return True
 
-        # Complete failure: no unvisited candidates
-        if self.cfg.enforce_unique:
-            pbar.close()
-            return False
+        # Current candidates all visited - search progressively larger neighborhoods
+        window_indices = path[-self.cfg.smoothing_k :]
+        vectors = self.db.data[window_indices].astype(np.float32)  # type: ignore
+        mean_vec = np.mean(vectors, axis=0)
 
-        # Last resort: backtrack if possible
-        if len(path) > 1:
-            path.pop()
-            stack.pop()
-            pbar.update(-1)
-            return True
+        # Build list of k sizes to try, starting from current k_candidates
+        k_sizes = []
+        for k in [1000, 5000, 10000, 50000]:
+            if k > self.k_candidates:
+                k_sizes.append(k)
 
+        for k_size in k_sizes:
+            new_d, new_i = self.idx.search_vector(mean_vec, k_candidates=min(k_size, len(self.db.filenames)))
+
+            for cand in new_i:
+                if cand != -1 and cand not in visited:
+                    visited.add(cand)
+                    path.append(cand)
+
+                    # Get new neighborhood for this candidate
+                    dn, in_ = self.idx.search_vector(mean_vec, k_candidates=self.k_candidates)
+                    stack.append([cand, in_, dn, 0])
+                    self.consecutive_failures = 0  # Success - reset counter
+                    pbar.update(1)
+                    return True
+
+        # All images have been visited
+        self.consecutive_failures += 1
         return False
 
 
