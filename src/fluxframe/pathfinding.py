@@ -267,13 +267,15 @@ class PathFinder:
         last = path[-1]
 
         # Start with current k_candidates, then expand if needed
+        # Always include database size as final fallback
         k_sizes = [self.k_candidates]
-        if self.k_candidates < 1000:
-            k_sizes.append(1000)
-        if self.k_candidates < 5000:
-            k_sizes.append(5000)
-        if self.k_candidates < 10000:
-            k_sizes.append(10000)
+        for k in [1000, 5000, 10000, 50000, 100000, len(self.db.filenames)]:
+            if k > self.k_candidates:
+                k_sizes.append(k)
+
+        # Ensure we always try at least the full database
+        if k_sizes[-1] < len(self.db.filenames):
+            k_sizes.append(len(self.db.filenames))
 
         for k_size in k_sizes:
             _d, i = self.idx.search_id(last, k_candidates=min(k_size, len(self.db.filenames)))
@@ -423,10 +425,15 @@ class PathFinder:
         mean_vec = np.mean(vectors, axis=0)
 
         # Build list of k sizes to try, starting from current k_candidates
+        # Always include database size as final fallback
         k_sizes = []
-        for k in [1000, 5000, 10000, 50000]:
+        for k in [1000, 5000, 10000, 50000, 100000, len(self.db.filenames)]:
             if k > self.k_candidates:
                 k_sizes.append(k)
+
+        # Ensure we always try at least the full database
+        if not k_sizes or k_sizes[-1] < len(self.db.filenames):
+            k_sizes.append(len(self.db.filenames))
 
         for k_size in k_sizes:
             new_d, new_i = self.idx.search_vector(mean_vec, k_candidates=min(k_size, len(self.db.filenames)))
