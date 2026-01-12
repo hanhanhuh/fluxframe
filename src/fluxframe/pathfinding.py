@@ -379,12 +379,8 @@ class PathFinder:
                 stack.pop()
                 pbar.update(-1)
                 return True
-            if self.cfg.enforce_unique:
-                pbar.close()
-                total = self.cfg.total_frames
-                print(f"\n[Algo] STOP: Only {len(path)}/{total} unique frames available.")
-                return False
-            return False
+            # Can't backtrack from start - force a move instead
+            return self._force_move(path, visited, stack, pbar)
         # Beyond leash: force move to escape local minimum
         return self._force_move(path, visited, stack, pbar)
 
